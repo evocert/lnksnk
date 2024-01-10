@@ -33,6 +33,11 @@ func BuildGoApp(
 	}
 
 	env := []string{"GOOS=" + goos, "GOARCH=" + goarch}
+	if cgoSupported {
+		env = append(env, "CGO_ENABLED=1")
+	} else {
+		env = append(env, "CGO_ENABLED=0")
+	}
 	if cmd, cmderr := command.NewCommand("go", env, "build", "-C", codesourcepath, "-a", "-v", `-ldflags`, ldflags, "-o", appdestinationpath+appname); cmderr == nil {
 		defer cmd.Close()
 		if cmderr = cmd.Wait(); cmderr == nil {
