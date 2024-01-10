@@ -8,7 +8,7 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 )
 
-func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, destappname string) {
+func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, destappname string, disableCgoSupport bool) {
 	var distdefs = []interface{}{}
 	if err := json.Unmarshal([]byte(distjson), &distdefs); err == nil {
 		go func() {
@@ -17,6 +17,9 @@ func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, de
 					var goos, _ = argcpump["GOOS"].(string)
 					var goarch, _ = argcpump["GOARCH"].(string)
 					var cgoSupported, _ = argcpump["CgoSupported"].(bool)
+					if cgoSupported && disableCgoSupport {
+						cgoSupported = false
+					}
 					var firstClass, _ = argcpump["FirstClass"].(bool)
 					bfrslt := iorw.NewBuffer()
 					bferrrslt := iorw.NewBuffer()
