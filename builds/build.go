@@ -1,13 +1,11 @@
-//go:build buildall
-// +build buildall
-
 package builds
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"lnksnk/iorw"
+
+	"github.com/evocert/lnksnk/iorw"
 )
 
 func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, destappname string) {
@@ -25,7 +23,7 @@ func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, de
 					BuildGoApp(goos, goarch, cgoSupported, firstClass,
 						"-s -w", "C:/projects/lnksnknext/app", "C:/projects/lnksnknext/builds/dist/", func() (appname string) {
 							appname = destappname
-							appname = appname + "_" + goos "_" + goarch
+							appname = appname + "_" + goos + "_" + goarch
 							if goos == "windows" {
 								appname = appname + ".exe"
 							} else if goos == "js" {
