@@ -1,5 +1,5 @@
-//go:build !linux && !windows && !solaris && !illumos && !aix
-// +build !linux,!windows,!solaris,!illumos,!aix
+//go:build !linux && !windows && !solaris && !illumos && !aix && !plan9
+// +build !linux,!windows,!solaris,!illumos,!aix,!plan9
 
 package listen
 
