@@ -21,7 +21,7 @@ func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, de
 					bfrslt := iorw.NewBuffer()
 					bferrrslt := iorw.NewBuffer()
 					BuildGoApp(goos, goarch, cgoSupported, firstClass,
-						"-s -w", "C:/projects/lnksnknext/app", "C:/projects/lnksnknext/builds/dist/", func() (appname string) {
+						"-s -w", sourcepath, destinationpath, func() (appname string) {
 							appname = destappname
 							appname = appname + "_" + goos + "_" + goarch
 							if goos == "windows" {
