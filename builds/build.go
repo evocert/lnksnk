@@ -1,17 +1,21 @@
 package builds
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/evocert/lnksnk/iorw"
 )
 
-func BuildGoAppDistribution(ctx context.Context, sourcepath, destinationpath, destappname string, disableCgoSupport bool) {
+func BuildGoAppDistribution(done chan bool, sourcepath, destinationpath, destappname string, disableCgoSupport bool) {
 	var distdefs = []interface{}{}
 	if err := json.Unmarshal([]byte(distjson), &distdefs); err == nil {
 		go func() {
+			defer func() {
+				if done != nil {
+					done <- true
+				}
+			}()
 			for _, distdef := range distdefs {
 				if argcpump, _ := distdef.(map[string]interface{}); len(argcpump) > 0 {
 					var goos, _ = argcpump["GOOS"].(string)
