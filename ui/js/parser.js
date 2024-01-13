@@ -131,7 +131,7 @@ function buildFormData(){
                 document.querySelectorAll(elm+" textarea").forEach((txtareaelm)=>{
                     var inname= txtareaelm.getAttribute("name");
                     if(inname!==null&&inname!==""){
-                        var invalue=convertHTMLEntity(txtareaelm.innerHTML);
+                        var invalue=convertHTMLEntity(txtareaelm.value);
                         if(crntfrmdata===null){
                             crntfrmdata=new FormData();
                         }
@@ -169,7 +169,7 @@ function buildFormData(){
                 elm.querySelectorAll("textarea").forEach((txtareaelm)=>{
                     var inname= txtareaelm.getAttribute("name");
                     if(inname!==null&&inname!==""){
-                        var invalue=convertHTMLEntity(txtareaelm.innerHTML);
+                        var invalue=convertHTMLEntity(txtareaelm.value);
                         if(crntfrmdata===null){
                             crntfrmdata=new FormData();
                         }
