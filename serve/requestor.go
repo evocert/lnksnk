@@ -263,7 +263,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		nvm.Set("containsParameter", params.ContainsParameter)
 		nvm.Set("parameter", params.Parameter)
 		nvm.Set("fileParameter", params.FileParameter)
-		nvm.Set("fileParameter", params.FileReader)
+		nvm.Set("fileParameterReader", params.FileReader)
 		nvm.Set("_in", In)
 		nvm.Set("_out", Out)
 		nvm.R = In
