@@ -89,9 +89,12 @@ func NewVM(a ...interface{}) (vm *VM) {
 		IncludeModule(vm.vm, modname)
 		return true
 	})
+	vm.Set("setPrinter", vm.SetPrinter)
 	vm.Set("print", vm.Print)
 	vm.Set("println", vm.Println)
 	vm.Set("binwrite", vm.Write)
+
+	vm.Set("setReader", vm.SetReader)
 	vm.Set("binread", vm.Read)
 	vm.Set("readln", vm.Readln)
 	vm.Set("readlines", vm.ReadLines)
@@ -272,6 +275,17 @@ func (vm *VM) Remove(objname string) {
 	}
 }
 
+func (vm *VM) SetReaderPrinter(r io.Reader, w io.Writer) {
+	vm.SetReader(r)
+	vm.SetPrinter(w)
+}
+
+func (vm *VM) SetReader(r io.Reader) {
+	if vm != nil && vm.R != r {
+		vm.R = r
+	}
+}
+
 func (vm *VM) Read(p ...byte) (n int, err error) {
 	if vm != nil && vm.R != nil {
 		n, err = vm.R.Read(p)
@@ -298,6 +312,12 @@ func (vm *VM) ReadAll() (all string, err error) {
 		all, err = iorw.ReaderToString(vm.R)
 	}
 	return
+}
+
+func (vm *VM) SetPrinter(w io.Writer) {
+	if vm != nil && vm.W != w {
+		vm.W = w
+	}
 }
 
 func (vm *VM) Print(a ...interface{}) (err error) {
