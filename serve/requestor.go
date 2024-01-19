@@ -160,7 +160,15 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			go ProcessRequestPath(rqstpath, nil)
 		})
 
-		var fparseEval = func(prsout io.Writer, prin io.Reader, invert bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
+		var fparseEval = func(prsout io.Writer, evalrt interface{}, a ...interface{}) (prsevalerr error) {
+			var invert bool = false
+			if len(a) > 0 {
+				if inv, invok := a[0].(bool); invok {
+					invert = inv
+					a = a[1:]
+				}
+			}
+			var prin, _ = evalrt.(io.Reader)
 			var suggestedroot = "/"
 			if fi != nil {
 				suggestedroot = fi.PathRoot()
