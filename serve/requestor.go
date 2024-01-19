@@ -337,7 +337,11 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 
 	var invertactive = false
 	if strings.Contains(path, "/active:") {
-		path = strings.Replace(path, "/active:", "/", -1)
+		for strings.Contains(path, "/active:") {
+			prepath := path[:strings.Index(path, "/active:")]
+			path = prepath + path[strings.Index(path, "/active:")+len("/active:"):]
+		}
+		//path = strings.Replace(path, "/active:", "/", -1)
 		invertactive = true
 	}
 	if pathext != "" {
