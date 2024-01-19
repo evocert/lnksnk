@@ -160,7 +160,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			go ProcessRequestPath(rqstpath, nil)
 		})
 
-		var fparseEval = func(prsout io.Writer, evalrt interface{}, invert bool, a ...interface{}) (prsevalerr error) {
+		var fparseEval = func(prsout io.Writer, prin io.Reader, invert bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
 			var suggestedroot = "/"
 			if fi != nil {
 				suggestedroot = fi.PathRoot()
@@ -175,7 +175,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 				if evalroot != "" || (evalroot == "" && evalrt != nil) {
 					a = append([]interface{}{evalrt}, a...)
 				}
-				if len(a) > 0 {
+				if prin == nil && len(a) > 0 {
 					func() {
 						defer prsevalbuf.Clear()
 						if prsevalbuf == nil {
@@ -185,16 +185,22 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 							prsevalbuf.Clear()
 							prsevalbuf.Print(a...)
 						}
-						prsevalerr = vmParseEval(nvm, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fs, invert, nil, nil, nil)
+						if prsevalbuf.Size() > 0 {
+							prsevalerr = vmParseEval(nvm, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fs, invert, nil, nil, nil)
+						}
 					}()
+				} else {
+					prsevalerr = vmParseEval(nvm, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fs, invert, nil, nil, nil)
 				}
 			}
 			return prsevalerr
 		}
 
-		nvm.Set("parseEval", func(outw io.Writer, isactive bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
-			return fparseEval(outw, evalrt, isactive, a...)
-		})
+		/*nvm.Set("parseEval", func(outw io.Writer, inr io.Reader, isactive bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
+			return fparseEval(outw, inr, evalrt, isactive, a...)
+		})*/
+
+		nvm.Set("parseEval", fparseEval)
 
 		/*nvm.Set("parseActiveEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
 			return fparseEval(Out, evalrt, true, a...)
