@@ -76,6 +76,12 @@ func Fprint(w io.Writer, a ...interface{}) (err error) {
 						break
 					}
 				}
+			} else if sa, saok := a[dn].([]string); saok {
+				if len(sa) > 0 {
+					if _, err = w.Write(RunesToUTF8([]rune(strings.Join(sa, ""))...)); err != nil {
+						break
+					}
+				}
 			} else {
 				if a[dn] != nil {
 					if _, err = fmt.Fprint(w, a[dn]); err != nil {
