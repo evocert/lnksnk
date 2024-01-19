@@ -159,14 +159,18 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		nvm.Set("faf", func(rqstpath string) {
 			go ProcessRequestPath(rqstpath, nil)
 		})
-		nvm.Set("parseEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
+
+		var fparseEval = func(prsout io.Writer, evalrt interface{}, invert bool, a ...interface{}) (prsevalerr error) {
 			var suggestedroot = "/"
 			if fi != nil {
 				suggestedroot = fi.PathRoot()
 			}
 			var evalroot, _ = evalrt.(string)
+			if prsout == nil {
+				prsout = Out
+			}
 			if fis := fs.LS(evalroot + ".js"); len(fis) == 1 {
-				prsevalerr = vmParseEval(nvm, fis[0].Path(), ".js", fis[0].ModTime(), Out, nil, fs, true, fis[0], nil, nil)
+				prsevalerr = vmParseEval(nvm, fis[0].Path(), ".js", fis[0].ModTime(), prsout, nil, fs, invert, fis[0], nil, nil)
 			} else if len(fis) == 0 {
 				if evalroot != "" || (evalroot == "" && evalrt != nil) {
 					a = append([]interface{}{evalrt}, a...)
@@ -181,12 +185,24 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 							prsevalbuf.Clear()
 							prsevalbuf.Print(a...)
 						}
-						prsevalerr = vmParseEval(nvm, ":no-cache/"+suggestedroot, ".js", time.Now(), Out, prsevalbuf.Clone(true).Reader(true), fs, true, nil, nil, nil)
+						prsevalerr = vmParseEval(nvm, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fs, invert, nil, nil, nil)
 					}()
 				}
 			}
 			return prsevalerr
+		}
+
+		nvm.Set("parseEval", func(outw io.Writer, isactive bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
+			return fparseEval(outw, evalrt, isactive, a...)
 		})
+
+		/*nvm.Set("parseActiveEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
+			return fparseEval(Out, evalrt, true, a...)
+		})
+
+		nvm.Set("parseEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
+			return fparseEval(Out, evalrt, false, a...)
+		})*/
 		nvm.Set("scheduling", SCHEDULING)
 		nvm.Set("schdlng", SCHEDULING)
 		nvm.Set("caching", CHACHING)
