@@ -32,7 +32,6 @@ func NewVM(a ...interface{}) (vm *VM) {
 	var w io.Writer = nil
 	var r io.Reader = nil
 	var stngs map[string]interface{} = nil
-	//var errprint func(a ...interface{}) error = nil
 	for _, d := range a {
 		if d != nil {
 			if wd, _ := d.(io.Writer); wd != nil {
@@ -50,11 +49,7 @@ func NewVM(a ...interface{}) (vm *VM) {
 						stngs[stngk] = stngv
 					}
 				}
-			} /*else if errprintd, _ := d.(func(a ...interface{}) error); errprintd != nil {
-				if errprint == nil {
-					errprint = errprintd
-				}
-			}*/
+			}
 		}
 	}
 	vm = &VM{vm: goja.New(), W: w, R: r, objmap: map[string]interface{}{}}
@@ -69,9 +64,6 @@ func NewVM(a ...interface{}) (vm *VM) {
 			iorw.Fprintln(os.Stdout, a...)
 		},
 	})
-	/*if errprint != nil {
-		vm.errprint = errprint
-	}*/
 	vm.vmreq = gojaregistry.Enable(vm.vm, vm.Print, vm.Println)
 	//vm.vm.RunProgram(typescript.TypeScriptProgram)
 	vm.vm.RunProgram(adhocPrgm)

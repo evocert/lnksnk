@@ -109,12 +109,9 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 	if httpr != nil {
 		ctx = httpr.Context()
 		parameters.LoadParametersFromHTTPRequest(params, httpr)
-		//serial := nextserial()
-		//requests.Set(serial, httpr)
 		if path == "" {
 			path = httpr.URL.Path
 		}
-		//defer requests.Del(serial)
 	} else {
 		if path != "" {
 			path = strings.Replace(path, "\\", "/", -1)
@@ -140,20 +137,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 	}), params, CHACHING, fs)
 	defer dbhnlr.Dispose()
 	vm = func() (nvm *active.VM) {
-		//if nvm, _ = vmpool.Get().(*active.VM); nvm == nil {
 		nvm = active.NewVM()
-		//}
-		/*case vm = <-vmpool:
-		default:
-			vm = active.NewVM(func(a ...interface{}) (vmerr error) {
-				if Out != nil {
-					Out.Print("<pre>ERR:\r\n")
-					Out.Print(a...)
-					Out.Print("\r\n</pre>")
-				}
-				return
-			})
-		}*/
 		nvm.ErrPrint = func(a ...interface{}) (vmerr error) {
 			if Out != nil {
 				Out.Print("<pre>ERR:\r\n")
@@ -280,15 +264,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		nvm.Set("parameter", params.Parameter)
 		nvm.Set("fileParameter", params.FileParameter)
 		nvm.Set("fileParameter", params.FileReader)
-		/*nvm.DisposeObject = func(s string, i interface{}) {
-			if dbmsv, _ := i.(*database.DBMSHandler); dbmsv != nil {
-				dbmsv.Dispose()
-			} else if emailv, _ := i.(*emailing.ActiveEmailManager); emailv != nil {
-				emailv.Close()
-			} else if termv, _ := i.(*terminals); termv != nil {
-				termv.Close()
-			}
-		}*/
 		nvm.Set("_in", In)
 		nvm.Set("_out", Out)
 		nvm.R = In
@@ -466,10 +441,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 	//}
 	return
 }
-
-var vmpool = &sync.Pool{New: func() any {
-	return active.NewVM()
-}}
 
 type dbclosers struct {
 	clsrs *sync.Map
