@@ -547,130 +547,59 @@ function _parseEval(){
     }
 
     if(template.length>0){
-        processContent(template);
+       prepTargetContent(target,processContent(template));
     }
+}
 
-    function processContent(template) {
-        var conttentprepped="";
-        var print=function(){
-            for(var i=0;i<arguments.length;i++) conttentprepped+=arguments[i]+"";
-        };
 
-        var reset=function(){conttentprepped="";}
-        
-        var write=function(ctnttowrite){
-            if(ctnttowrite!==undefined&&ctnttowrite!==null&&(ctnttowrite=ctnttowrite.trim())!=="") {
-                if(target===null||target===undefined||target==="") {
-                    if(ctnttowrite.startsWith("<")&&ctnttowrite.endsWith(">")&&!ctnttowrite.endsWith("/>")&&ctnttowrite.indexOf(">")>0&&ctnttowrite.indexOf(">")<ctnttowrite.indexOf("</")){
-                        var possibletag=ctnttowrite.substring("<".length,ctnttowrite.indexOf(">"));
-                        var elmname="";
-                        var elmrmng="";
-                        var pn=0;
-                        for(let pc in [...possibletag]){
-                            if(possibletag.substring(pn,pn+1).trim()===""){
-                                pn=pc;
-                                break
-                            }
-                            pn++;
-                        }
-                    
-                        elmname=possibletag.substring(0,pn).trim();
-                        elmrmng=possibletag.substring(pn).trim();
-                        if(ctnttowrite.startsWith("<"+elmname)&&ctnttowrite.endsWith("</"+elmname+">")){
-                            ctnttowrite=ctnttowrite.substring(ctnttowrite.indexOf(">")+">".length,ctnttowrite.length-("</"+elmname+">").length);
-                            if(isdocscrpt&&sourceElm!==undefined&&sourceElm!==null){
-                                var newElm=document.createElement(elmname);
-                                if(elmrmng!==""){
-                                    elemAttributes(newElm,elmrmng);
-                                }
-                                prepTargetContent(newElm,ctnttowrite);
-                                sourceElm.parentNode.replaceChild(newElm,sourceElm);
-                            }
-                        }
-                    }
-                } else if (target!==undefined&&target!==null){
-                    if (typeof target==="string" && (target=target.trim())!==""){
-                        if (target.startsWith("scrpt:")){
-                            target=target.substring("scrpt:".length);
-                            if (target==="") {
-                                eval(ctnttowrite);
-                            } else if (target.includes("[#code#]")) {
-                                eval(target.substring(0,target.indexOf("[#code#]"))+ctnttowrite+target.substring(target.indexOf("[#code#]")+"[#code#]".length));
+function processContent(template) {
+    var conttentprepped=""
+    
+    if (template!==undefined&&template!==null) {
+        conttentprepped=Array.isArray(template)?template.join(""):template;
+    }
+    
+    function extract(cntntprpd) {
+        var trgtprelbl="[#:";
+        var trgtpostlbl=":#]";
+        var trgti=-1
+        var precntnt="";
+        var trgtlbl="";
+        var trgtcntnt="";
+        while(cntntprpd.length>0){
+            if((trgti=cntntprpd.indexOf(trgtprelbl))>-1){
+                precntnt+=cntntprpd.substring(0,trgti);
+                cntntprpd=cntntprpd.substring(trgti+trgtprelbl.length);
+                if((trgti=cntntprpd.indexOf(trgtpostlbl))>-1){
+                    trgtlbl=cntntprpd.substring(0,trgti);
+                    cntntprpd=cntntprpd.substring(trgti+trgtpostlbl.length);
+                    if (trgtlbl!==""){
+                        if ((trgti=cntntprpd.indexOf(trgtprelbl+trgtlbl+trgtpostlbl))>-1){
+                            trgtcntnt=cntntprpd.substring(0,trgti);
+                            cntntprpd=cntntprpd.substring(trgti+(trgtprelbl+trgtlbl+trgtpostlbl).length)
+                            var trgtsfnd=document.querySelectorAll(trgtlbl);
+                            if (trgtsfnd.length>0){
+                                trgtsfnd.forEach((dstelm)=>{
+                                    prepTargetContent(dstelm,trgtcntnt);
+                                });
+                            } else {
+                                precntnt+=(trgtprelbl+trgtlbl+trgtpostlbl);
                             }
                         } else {
-                            document.querySelectorAll(target).forEach((trgtelm)=>{
-                                if(isdocscrpt&&sourceElm!==nul){
-                                    for(var ai=0;ai<sourceElm.attributes.length;ai++){
-                                        var attnme=sourceElm.attributes[ai].name;
-                                        if(attnme==="target"||attnme==="urlref") continue;
-                                        trgtelm.setAttribute(sourceElm.attributes[ai].name,sourceElm.attributes[ai].value);
-                                    }
-                                }
-                                prepTargetContent(trgtelm,ctnttowrite);
-                            });
-                        }
-                    } else if (target instanceof HTMLElement){
-                        prepTargetContent(target,ctnttowrite);
-                    }
-                    if(isdocscrpt){
-                        if(sourceElm!==undefined&&sourceElm!==null){
-                            sourceElm.remove();
-                        }
-                    }
-                }
-            }
-        };
-
-        var _flush=function(){
-            write();
-            reset();
-        }
-
-        var _target=function(){
-            if(arguments.length==1&&arguments[0]!==undefined&&arguments[0]!==null && typeof arguments[0]==="string"&&(arguments[0]=arguments[0].trim())!==""){
-                //_flush();
-                target=arguments[0];
-            }
-        }
-        if (template!==undefined&&template!==null) {
-            conttentprepped=Array.isArray(template)?template.join(""):template;
-            var trgti=-1;
-            var lstTrgti=-1;
-            var crntcntnttowrite=""
-            while(conttentprepped.length>0){
-                if((trgti=conttentprepped.indexOf("[#trgt#"))>-1){
-                    lstTrgti=trgti;
-                    var precntnt=conttentprepped.substring(trgti);
-                    conttentprepped=conttentprepped.substring(trgti,"[#trgt#".length)
-                    if (precntnt===undefined||precntnt===null){
-                        precntnt="";
-                    }
-                    crntcntnttowrite+=precntnt;
-                    if ((trgti=conttentprepped.indexOf("#]"))>-1){
-                        var trgtnme=conttentprepped.substring(trgti);
-                        conttentprepped=conttentprepped.substring(trgti,"#]".length)
-                        if(trgtnme===undefined||trgtnme===null){
-                            trgtnme="";
-                        }
-                        if((trgti=conttentprepped.indexOf(`[#trgt#${trgtnme}#]`))>-1) {
-                            if (crntcntnttowrite!==undefined&&crntcntnttowrite!==null&&crntcntnttowrite!==""){
-                                write(crntcntnttowrite);
-                                crntcntnttowrite="";
-                            }
-                            _target(trgtnme);
-                            crntcntnttowrite= conttentprepped.substring(0,trgti);
-                            write(crntcntnttowrite);
-                            crntcntnttowrite="";
-                            conttentprepped=conttentprepped.substring(trgti,`[#trgt#${trgtnme}#]`.length);
+                            precntnt+=trgtlbl
                         }
                     }
                 } else {
-                    crntcntnttowrite+=conttentprepped;
-                    write(crntcntnttowrite);
-                    crntcntnttowrite="";
-                    break;
+                    precntnt+=cntntprpd=cntntprpd.substring(0,trgti+trgtpostlbl.length);
+                    cntntprpd=cntntprpd.substring(trgti+trgtpostlbl.length);
                 }
+            } else {
+                break
             }
         }
+        return precntnt+cntntprpd;
+    }
+    if ((conttentprepped=extract(conttentprepped)).length>0){
+        //alert(conttentprepped);
     }
 }
