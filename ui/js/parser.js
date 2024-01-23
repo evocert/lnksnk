@@ -392,6 +392,15 @@ function parseEval(){
 }
 
 function prepTargetContent(targetelem, cntnttoprep){
+    if (targetelem!==undefined && targetelem!==null && typeof targetelem ==="string" && targetelem!==""){
+        var trgtsfound=document.querySelectorAll(targetelem);
+        if (trgtsfound.length>0) {
+            trgtsfound.forEach((trgtelm)=>{
+                prepTargetContent(trgtelm,cntnttoprep);
+            });
+            return
+        }
+    }
     if (targetelem instanceof HTMLElement) {
         targetelem.innerHTML=cntnttoprep;
         targetelem.querySelectorAll("script").forEach((elm)=>{
@@ -600,6 +609,6 @@ function processContent(template) {
         return precntnt+cntntprpd;
     }
     if ((conttentprepped=extract(conttentprepped)).length>0){
-        //alert(conttentprepped);
+        return conttentprepped
     }
 }
