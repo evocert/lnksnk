@@ -29,7 +29,7 @@ func MimeTypesCSV() io.Reader {
 			}
 		}()
 	}
-	return mimebuf.Reader() //strings.NewReader(mimetypescsv)
+	return mimebuf.Reader().DisposeEOFReader() //strings.NewReader(mimetypescsv)
 }
 
 func ExtMimeType(ext string, defaultext string, defaulttype ...string) (mimetype string) {
