@@ -29,7 +29,7 @@ func MimeTypesCSV() io.Reader {
 			}
 		}()
 	}
-	return mimebuf.Reader().DisposeEOFReader() //strings.NewReader(mimetypescsv)
+	return mimebuf.Reader().DisposeEOFReader()
 }
 
 func ExtMimeType(ext string, defaultext string, defaulttype ...string) (mimetype string) {
@@ -52,17 +52,17 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	texttype = false
 	if ext = filepath.Ext(ext); ext != "" {
 		func() {
-			mtypesfoundlck.RLock()
-			if _, mimetypeok := mtypesfound[ext]; mimetypeok {
-				defer mtypesfoundlck.RUnlock()
-				mimetype = mtypesfound[ext]
-				if _, textextok := mtextexts[ext]; textextok {
-					texttype = mtextexts[ext]
+			//mtypesfoundlck.RLock()
+			if mimetpev, mimetypeok := mtypesfound.Load(ext); mimetypeok {
+				//defer mtypesfoundlck.RUnlock()
+				mimetype, _ = mimetpev.(string)
+				if textextv, textextok := mtextexts.Load(ext); textextok {
+					texttype, _ = textextv.(bool)
 				}
 			} else {
-				mtypesfoundlck.RUnlock()
-				mtypesfoundlck.Lock()
-				defer mtypesfoundlck.Unlock()
+				//mtypesfoundlck.RUnlock()
+				//mtypesfoundlck.Lock()
+				//defer mtypesfoundlck.Unlock()
 				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					defer ctxcancel()
@@ -73,11 +73,13 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 							var lines = strings.Split(string(lineb), "\t")
 							if len(lines) == 4 && lines[2] == ext {
 								mimetype = lines[1]
-								mtypesfound[ext] = mimetype
-								if _, textextok := mtextexts[ext]; textextok {
-									texttype = mtextexts[ext]
+								if mimetpev, mimetypeok = mtypesfound.Load(ext); mimetypeok {
+									mimetype = mimetpev.(string)
+									if textextv, textextok := mtextexts.Load(ext); textextok {
+										texttype, _ = textextv.(bool)
+									}
+									break
 								}
-								break
 							}
 						}
 						if lineberr != nil {
@@ -101,18 +103,15 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	return
 }
 
-var mtypesfound map[string]string
-var mtypesfoundlck = &sync.RWMutex{}
-
-var mtextexts map[string]bool
+var mtypesfound = &sync.Map{}
+var mtextexts = &sync.Map{}
 
 func init() {
-	mtypesfound = map[string]string{}
-	mtextexts = map[string]bool{}
-	mtextexts[".js"] = true
-	mtextexts[".json"] = true
-	mtextexts[".html"] = true
-	mtextexts[".xhtml"] = true
-	mtextexts[".htm"] = true
-	mtextexts[".js"] = true
+	mtypesfound = &sync.Map{}
+	mtextexts.Store(".js", true)
+	mtextexts.Store(".json", true)
+	mtextexts.Store(".html", true)
+	mtextexts.Store(".xhtml", true)
+	mtextexts.Store(".htm", true)
+	mtextexts.Store(".js", true)
 }
