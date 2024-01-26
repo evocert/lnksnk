@@ -52,17 +52,12 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 	texttype = false
 	if ext = filepath.Ext(ext); ext != "" {
 		func() {
-			//mtypesfoundlck.RLock()
 			if mimetpev, mimetypeok := mtypesfound.Load(ext); mimetypeok {
-				//defer mtypesfoundlck.RUnlock()
 				mimetype, _ = mimetpev.(string)
 				if textextv, textextok := mtextexts.Load(ext); textextok {
 					texttype, _ = textextv.(bool)
 				}
 			} else {
-				//mtypesfoundlck.RUnlock()
-				//mtypesfoundlck.Lock()
-				//defer mtypesfoundlck.Unlock()
 				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					defer ctxcancel()
@@ -73,13 +68,11 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 							var lines = strings.Split(string(lineb), "\t")
 							if len(lines) == 4 && lines[2] == ext {
 								mimetype = lines[1]
-								if mimetpev, mimetypeok = mtypesfound.Load(ext); mimetypeok {
-									mimetype = mimetpev.(string)
-									if textextv, textextok := mtextexts.Load(ext); textextok {
-										texttype, _ = textextv.(bool)
-									}
-									break
+								mtypesfound.Store(ext, mimetype)
+								if textextv, textextok := mtextexts.Load(ext); textextok {
+									texttype, _ = textextv.(bool)
 								}
+								break
 							}
 						}
 						if lineberr != nil {
