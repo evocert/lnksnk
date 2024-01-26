@@ -63,7 +63,6 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 				mtypesfoundlck.RUnlock()
 				mtypesfoundlck.Lock()
 				defer mtypesfoundlck.Unlock()
-				//var bufr = bufio.NewReader(MimeTypesCSV())
 				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					defer ctxcancel()
