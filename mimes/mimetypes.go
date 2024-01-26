@@ -16,8 +16,20 @@ import (
 var mimetypescsv string
 
 // MimeTypesCSV - return Mime Types CSV reader
+var mimebuf = iorw.NewBuffer()
+var mimebuflck = &sync.RWMutex{}
+
 func MimeTypesCSV() io.Reader {
-	return strings.NewReader(mimetypescsv)
+	if mimebuf.Size() == 0 {
+		func() {
+			mimebuflck.Lock()
+			defer mimebuflck.Unlock()
+			if mimebuf.Size() == 0 {
+				mimebuf.Print(mimetypescsv)
+			}
+		}()
+	}
+	return mimebuf.Reader() //strings.NewReader(mimetypescsv)
 }
 
 func ExtMimeType(ext string, defaultext string, defaulttype ...string) (mimetype string) {

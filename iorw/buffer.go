@@ -1227,6 +1227,15 @@ type BuffReader struct {
 	Disposed      readerdisposed
 	Options       map[string]string
 	DisposeBuffer bool
+	DisposeReader bool
+}
+
+// DisposeEOFReader - indicate when reader reach EOF then bufr.Close()
+func (bufr *BuffReader) DisposeEOFReader() *BuffReader {
+	if bufr != nil {
+		bufr.DisposeReader = true
+	}
+	return bufr
 }
 
 // SetMaxRead - set max read implementation for Reader interface compliance
@@ -1323,6 +1332,9 @@ func (bufr *BuffReader) Close() (err error) {
 				bufr.buffer.Close()
 			}
 			bufr.buffer = nil
+		}
+		if bufr.DisposeReader {
+			bufr.DisposeReader = false
 		}
 		if bufr.rnr != nil {
 			bufr.rnr = nil
@@ -1581,7 +1593,7 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 		}
 		if n == 0 && err == nil {
 			err = io.EOF
-			if bufr.DisposeBuffer {
+			if dspbuf, dsprdr := bufr.DisposeBuffer, bufr.DisposeReader; dspbuf || dsprdr {
 				bufr.Close()
 			}
 		}
