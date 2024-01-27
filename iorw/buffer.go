@@ -742,35 +742,6 @@ func (buff *Buffer) SubString(offset ...int64) (s string, err error) {
 					rns = nil
 				}
 			}
-			/*if sl := buff.Size(); sl > 0 {
-				var offs int64 = offset[0]
-				if offs == -1 {
-					offs = 0
-				}
-				var offe int64 = offset[1]
-				if offe == -1 || offe > sl {
-					offe = sl
-				}
-				if offs >= 0 && offe > 0 && offe <= sl && offe > offs {
-					pi, pw := io.Pipe()
-					ctx, ctxcancel := context.WithCancel(context.Background())
-					go func() {
-						var pwerr error = nil
-						defer func() {
-							if pwerr == nil {
-								pw.Close()
-							} else {
-								pw.CloseWithError(pwerr)
-							}
-						}()
-						ctxcancel()
-						pwerr = internalSubWrite(pw, buff, nil, offset...)
-					}()
-					<-ctx.Done()
-					defer pi.Close()
-					s, err = ReaderToString(pi)
-				}
-			}*/
 		}
 	}
 	return
