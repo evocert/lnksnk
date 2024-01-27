@@ -1,10 +1,8 @@
 package mimes
 
 import (
-	"bufio"
 	"context"
 	_ "embed"
-	"io"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,7 +17,7 @@ var mimetypescsv string
 var mimebuf = iorw.NewBuffer()
 var mimebuflck = &sync.RWMutex{}
 
-func MimeTypesCSV() io.Reader {
+func MimeTypesCSV() *iorw.BuffReader {
 	if mimebuf.Size() == 0 {
 		func() {
 			mimebuflck.Lock()
@@ -61,9 +59,9 @@ func FindMimeType(ext string, defaulttype string) (mimetype string, texttype boo
 				ctx, ctxcancel := context.WithCancel(context.Background())
 				go func() {
 					defer ctxcancel()
-					var bufr = bufio.NewReader(MimeTypesCSV())
+					var bufr = MimeTypesCSV()
 					for {
-						lineb, lineberr := iorw.ReadLine(bufr)
+						lineb, lineberr := bufr.Readln()
 						if len(lineb) > 0 {
 							var lines = strings.Split(string(lineb), "\t")
 							if len(lines) == 4 && lines[2] == ext {
