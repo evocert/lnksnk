@@ -2,10 +2,17 @@ package listen
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/evocert/lnksnk/concurrent"
 
@@ -40,7 +47,8 @@ func Shutdown(keys ...interface{}) {
 }
 
 type listen struct {
-	handler http.Handler
+	handler   http.Handler
+	TLSConfig *tls.Config
 }
 
 func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
@@ -50,6 +58,27 @@ func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
 		} else if DefaultHandler != nil {
 			Serve(network, addr, DefaultHandler, tlsconf...)
 		}*/
+		Serve(network, addr, lsnt.handler, tlsconf...)
+	}
+}
+
+func (lsnt *listen) ServeTLS(network string, addr string, orgname string, tlsconf ...*tls.Config) {
+	if lsnt != nil {
+		/*if hndlr := lsnt.handler; hndlr != nil {
+			Serve(network, addr, hndlr, tlsconf...)
+		} else if DefaultHandler != nil {
+			Serve(network, addr, DefaultHandler, tlsconf...)
+		}*/
+		if len(tlsconf) == 0 {
+			if publc, prv, err := GenerateTestCertificate(addr, orgname); err == nil {
+				if cert, err := tls.X509KeyPair(publc, prv); err == nil {
+					tslcnf := &tls.Config{}
+					tslcnf.Certificates = append(tslcnf.Certificates, cert)
+					tlsconf = append(tlsconf)
+				}
+			}
+
+		}
 		Serve(network, addr, lsnt.handler, tlsconf...)
 	}
 }
@@ -66,7 +95,7 @@ func NewListen(handerfunc http.HandlerFunc) *listen {
 			DefaultHandler.ServeHTTP(w, r)
 		})
 	}
-	return &listen{handler: handerfunc}
+	return &listen{handler: handerfunc, TLSConfig: &tls.Config{}}
 }
 
 func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Config) {
@@ -104,4 +133,56 @@ func init() {
 	go func() {
 		//httpsrv.Serve(lstnr)
 	}()
+}
+
+// GenerateTestCertificate generates a test certificate and private key based on the given host.
+func GenerateTestCertificate(host string, orgname string) ([]byte, []byte, error) {
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if orgname == "" {
+		orgname = "LNKSNK"
+	}
+	cert := &x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{orgname},
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
+		SignatureAlgorithm:    x509.SHA256WithRSA,
+		DNSNames:              []string{host},
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	certBytes, err := x509.CreateCertificate(
+		rand.Reader, cert, cert, &priv.PublicKey, priv,
+	)
+
+	p := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: x509.MarshalPKCS1PrivateKey(priv),
+		},
+	)
+
+	b := pem.EncodeToMemory(
+		&pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: certBytes,
+		},
+	)
+
+	return b, p, err
 }

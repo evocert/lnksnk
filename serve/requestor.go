@@ -597,6 +597,7 @@ var EMAILING = emailing.GLOBALEMAILMNGR()
 
 type ListenApi interface {
 	Serve(network string, addr string, tlsconf ...*tls.Config)
+	ServeTLS(network string, addr string, orgname string, tlsconf ...*tls.Config)
 	Shutdown(...interface{})
 }
 
