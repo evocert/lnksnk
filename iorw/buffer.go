@@ -1539,6 +1539,19 @@ func (bufr *BuffReader) Reset() {
 	}
 }
 
+func nextReaderBytes(bufr *BuffReader) (bts []byte, lastBytes bool) {
+	if bufr != nil {
+		if bufcur := bufr.bufcur; bufcur != nil {
+			bts, lastBytes = bufcur.nextBytes()
+		} else {
+			lastBytes = true
+		}
+	} else {
+		lastBytes = true
+	}
+	return
+}
+
 // Read - refer io.Reader
 func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 	if pl := len(p); pl > 0 {
@@ -1548,14 +1561,14 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 				for n < pl && (bufr.MaxRead > 0 || bufr.MaxRead == -1) {
 					if len(bufr.rbytes) == 0 || (len(bufr.rbytes) > 0 && len(bufr.rbytes) == bufr.rbytesi) {
 						if bufr.bufcur.curOffset == -1 {
-							if bts, btslst := bufr.bufcur.nextBytes(); len(bts) > 0 {
+							if bts, btslst := nextReaderBytes(bufr); len(bts) > 0 {
 								bufr.rbytes = bts[:]
 								bufr.rbytesi = 0
 							} else if btslst {
 								break
 							}
 						} else {
-							if bts, btslst := bufr.bufcur.nextBytes(); len(bts) > 0 {
+							if bts, btslst := nextReaderBytes(bufr); len(bts) > 0 {
 								bufr.rbytes = bts[:]
 								bufr.rbytesi = 0
 							} else if btslst {
