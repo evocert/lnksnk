@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -53,31 +54,31 @@ type listen struct {
 
 func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
 	if lsnt != nil {
-		/*if hndlr := lsnt.handler; hndlr != nil {
-			Serve(network, addr, hndlr, tlsconf...)
-		} else if DefaultHandler != nil {
-			Serve(network, addr, DefaultHandler, tlsconf...)
-		}*/
 		Serve(network, addr, lsnt.handler, tlsconf...)
 	}
 }
 
 func (lsnt *listen) ServeTLS(network string, addr string, orgname string, tlsconf ...*tls.Config) {
 	if lsnt != nil {
-		/*if hndlr := lsnt.handler; hndlr != nil {
-			Serve(network, addr, hndlr, tlsconf...)
-		} else if DefaultHandler != nil {
-			Serve(network, addr, DefaultHandler, tlsconf...)
-		}*/
+		rsvldaddr, _ := net.ResolveTCPAddr(network, addr)
+		host := rsvldaddr.IP.String()
+		if host == "" || host == "<nil>" {
+			host = "127.0.0.1"
+		}
+
+		if addrnames, _ := net.LookupHost(host); len(addrnames) > 0 {
+			for _, adr := range addrnames {
+				host = adr
+			}
+		}
 		if len(tlsconf) == 0 {
-			if publc, prv, err := GenerateTestCertificate(addr, orgname); err == nil {
+			if publc, prv, err := GenerateTestCertificate(host, orgname); err == nil {
 				if cert, err := tls.X509KeyPair(publc, prv); err == nil {
 					tslcnf := &tls.Config{}
 					tslcnf.Certificates = append(tslcnf.Certificates, cert)
-					tlsconf = append(tlsconf)
+					tlsconf = append(tlsconf, tslcnf)
 				}
 			}
-
 		}
 		Serve(network, addr, lsnt.handler, tlsconf...)
 	}
