@@ -119,7 +119,28 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			}
 		} else {
 			if stmnthndlr != nil {
-				qrybuf.Print(stmnthndlr.Prepair(a...)...)
+				if fs != nil && qrybuf.HasSuffix(".sql") {
+					var tstsql = qrybuf.String()
+					if fscat := fs.CAT(tstsql); fscat == nil {
+						tstsql = tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"
+						if fscat = fs.CAT(tstsql); fscat != nil {
+							qrybuf.Clear()
+							if _, preperr = qrybuf.ReadFrom(fscat); preperr != nil {
+								return
+							}
+							qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true))...)
+						}
+					} else {
+						qrybuf.Clear()
+						if _, preperr = qrybuf.ReadFrom(fscat); preperr != nil {
+							return
+						}
+						qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true))...)
+					}
+					fs = nil
+				} else {
+					qrybuf.Print(stmnthndlr.Prepair(a...)...)
+				}
 			} else {
 				qrybuf.Print(a...)
 			}
