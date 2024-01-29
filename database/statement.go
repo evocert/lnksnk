@@ -47,9 +47,20 @@ func parseParam(parseSqlParam func(totalArgs int) (s string), totalArgs int) (s 
 	return
 }
 
+type StatementHandler interface {
+	Prepair(...interface{}) []interface{}
+}
+
+type StatementHandlerFunc func(a ...interface{}) []interface{}
+
+func (stmnthndlfnc StatementHandlerFunc) Prepair(a ...interface{}) []interface{} {
+	return stmnthndlfnc(a...)
+}
+
 func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args map[string]interface{}, a ...interface{}) (preperr error) {
 	if stmnt != nil {
 		defer func() {
+
 			if preperr != nil && stmnt != nil {
 				stmnt.Close()
 			}
@@ -65,9 +76,17 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 		stmntref := &stmnt.stmnt
 		var cchng *concurrent.Map = nil
 		var ctx context.Context = nil
+		var stmnthndlr StatementHandler = nil
 		for ai < al {
 			if d := a[ai]; d != nil {
-				if fsd, _ := d.(*fsutils.FSUtils); fsd != nil {
+				if stmnthndld, _ := d.(StatementHandler); stmnthndld != nil {
+					if stmnthndlr == nil {
+						stmnthndlr = stmnthndld
+					}
+					a = append(a[:ai], a[ai+1:]...)
+					al--
+					continue
+				} else if fsd, _ := d.(*fsutils.FSUtils); fsd != nil {
 					if fs == nil {
 						fs = fsd
 					}
@@ -93,9 +112,17 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			ai++
 		}
 		if vqry, vqryfnd := cchng.Find(a...); vqryfnd && vqry != nil {
-			qrybuf.Print(vqry)
+			if stmnthndlr != nil {
+				qrybuf.Print(stmnthndlr.Prepair(vqry)...)
+			} else {
+				qrybuf.Print(vqry)
+			}
 		} else {
-			qrybuf.Print(a...)
+			if stmnthndlr != nil {
+				qrybuf.Print(stmnthndlr.Prepair(a...)...)
+			} else {
+				qrybuf.Print(a...)
+			}
 		}
 		if qrybuf.HasPrefix("#") && qrybuf.HasSuffix("#") {
 			if substrqry, _ := qrybuf.SubString(1, qrybuf.Size()-1); substrqry != "" {

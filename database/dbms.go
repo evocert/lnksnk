@@ -17,14 +17,15 @@ import (
 )
 
 type DBMSHandler struct {
-	ctx     context.Context
-	fs      *fsutils.FSUtils
-	dbms    *DBMS
-	runtime active.Runtime
-	prms    parameters.ParametersAPI
-	readers *sync.Map
-	exctrs  *sync.Map
-	cchng   *concurrent.Map
+	ctx               context.Context
+	fs                *fsutils.FSUtils
+	dbms              *DBMS
+	runtime           active.Runtime
+	prms              parameters.ParametersAPI
+	readers           *sync.Map
+	exctrs            *sync.Map
+	cchng             *concurrent.Map
+	CallPrepStatement StatementHandlerFunc
 }
 
 func (dbmshndlr *DBMSHandler) Exists(alias string) (exists bool) {
@@ -121,6 +122,9 @@ func (dbmshndlr *DBMSHandler) Query(alias string, a ...interface{}) (reader *Rea
 			if dbmshndlr.fs != nil {
 				a = append(a, dbmshndlr.fs)
 			}
+			if dbmshndlr.CallPrepStatement != nil {
+				a = append(a, dbmshndlr.CallPrepStatement)
+			}
 			if reader = dbms.Query(alias, a...); reader != nil {
 				readers := dbmshndlr.readers
 				if readers == nil {
@@ -161,7 +165,9 @@ func (dbmshndlr *DBMSHandler) Execute(alias string, a ...interface{}) (exctr *Ex
 			if dbmshndlr.cchng != nil {
 				a = append(a, dbmshndlr.cchng)
 			}
-
+			if dbmshndlr.CallPrepStatement != nil {
+				a = append(a, dbmshndlr.CallPrepStatement)
+			}
 			if exctr = dbms.Execute(alias, a...); exctr != nil {
 				exctrs := dbmshndlr.exctrs
 				if exctrs == nil {
@@ -201,6 +207,9 @@ func (dbmshndlr *DBMSHandler) Prepair(alias string, a ...interface{}) (exctr *Ex
 			}
 			if dbmshndlr.cchng != nil {
 				a = append(a, dbmshndlr.cchng)
+			}
+			if dbmshndlr.CallPrepStatement != nil {
+				a = append(a, dbmshndlr.CallPrepStatement)
 			}
 			if exctr = dbms.Prepair(alias, a...); exctr != nil {
 				exctrs := dbmshndlr.exctrs
@@ -246,8 +255,8 @@ func (dbmshndlr *DBMSHandler) Register(alias string, driver string, datasource s
 	return
 }
 
-func (dbms *DBMS) DBMSHandler(ctx context.Context, runtime active.Runtime, prms parameters.ParametersAPI, cchng *concurrent.Map, fs *fsutils.FSUtils) (dbmshndlr *DBMSHandler) {
-	dbmshndlr = &DBMSHandler{ctx: ctx, dbms: dbms, runtime: runtime, prms: prms, cchng: cchng, fs: fs}
+func (dbms *DBMS) DBMSHandler(ctx context.Context, runtime active.Runtime, prms parameters.ParametersAPI, cchng *concurrent.Map, fs *fsutils.FSUtils, callprepstmnt StatementHandlerFunc) (dbmshndlr *DBMSHandler) {
+	dbmshndlr = &DBMSHandler{ctx: ctx, dbms: dbms, runtime: runtime, prms: prms, cchng: cchng, fs: fs, CallPrepStatement: callprepstmnt}
 	return
 }
 

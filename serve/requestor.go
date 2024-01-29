@@ -134,7 +134,18 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 	var vm *active.VM = nil
 	var dbhnlr *database.DBMSHandler = DBMS.DBMSHandler(ctx, active.RuntimeFunc(func(functocall interface{}, args ...interface{}) interface{} {
 		return vm.InvokeFunction(functocall, args...)
-	}), params, CHACHING, fs)
+	}), params, CHACHING, fs, func(ina ...interface{}) (a []interface{}) {
+		if vm != nil {
+			stmntoutbuf := iorw.NewBuffer()
+			defer stmntoutbuf.Close()
+			stmntoutbuf.Print(ina...)
+			vmParseEval(vm, ":no-cache/", ".js", time.Now(), stmntoutbuf, stmntoutbuf.Clone(true).Reader(true), fs, false, nil, nil, nil)
+			a = append(a, stmntoutbuf.Clone(true).Reader(true))
+		} else {
+			a = append(a, ina...)
+		}
+		return
+	})
 	defer dbhnlr.Dispose()
 	vm = func() (nvm *active.VM) {
 		nvm = active.NewVM()
@@ -341,7 +352,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			prepath := path[:strings.Index(path, "/active:")]
 			path = prepath + path[strings.Index(path, "/active:")+len("/active:"):]
 		}
-		//path = strings.Replace(path, "/active:", "/", -1)
 		invertactive = true
 	}
 	if pathext != "" {
@@ -357,7 +367,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			isactive = true
 			if fis := fs.LS(path + "index" + psblexts); len(fis) == 1 {
 				fi = fis[0]
-				path = fi.Path() //path + "index" + psblexts
+				path = fi.Path()
 				mimetipe, istexttype, ismedia = mimes.FindMimeType(psblexts, "text/plain")
 				pathext = fi.PathExt()
 
@@ -393,7 +403,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 				err = vmParseEval(vm, path, pathext, pathmodified, Out, nil, fs, invertactive, fi, fnmodified, fnactiveraw)
 			} else if israw || ismedia {
 				if ismedia {
-					if f, ferr := fi.Open( /*fnactiveraw, fnmodified*/ ); ferr == nil {
+					if f, ferr := fi.Open(); ferr == nil {
 						defer f.Close()
 						if rssize := fi.Size(); rssize > 0 {
 							var eofrs *iorw.EOFCloseSeekReader = nil
@@ -443,7 +453,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 									}
 								}
 								Out.Print(eofrs)
-								//_, err = Out.ReadFrom(eofrs)
 							}
 						}
 					}
@@ -452,7 +461,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 						if fi != nil {
 							Out.Header().Set("Content-Length", fmt.Sprintf("%d", fi.Size()))
 						}
-						if f, ferr := fi.Open( /*fnactiveraw, fnmodified*/ ); ferr == nil {
+						if f, ferr := fi.Open(); ferr == nil {
 							if f != nil {
 								defer f.Close()
 								Out.Print(f)
@@ -462,7 +471,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 				}
 			} else {
 				if Out != nil {
-					if f, ferr := fi.Open( /*fnactiveraw, fnmodified*/ ); ferr == nil {
+					if f, ferr := fi.Open(); ferr == nil {
 						if f != nil {
 							defer f.Close()
 							Out.Print(f)
@@ -472,7 +481,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			}
 		}
 	}
-	//}
 	return
 }
 
@@ -505,8 +513,8 @@ func (dbcls *dbclosers) Close() {
 }
 
 type terminals struct {
-	cmdprscs    *sync.Map //map[int]*command.Command
-	cmdprscrefs *sync.Map //map[string]int
+	cmdprscs    *sync.Map
+	cmdprscrefs *sync.Map
 }
 
 func newTerminal() (terms *terminals) {
