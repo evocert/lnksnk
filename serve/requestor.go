@@ -218,19 +218,8 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			return prsevalerr
 		}
 
-		/*nvm.Set("parseEval", func(outw io.Writer, inr io.Reader, isactive bool, evalrt interface{}, a ...interface{}) (prsevalerr error) {
-			return fparseEval(outw, inr, evalrt, isactive, a...)
-		})*/
-
 		nvm.Set("parseEval", fparseEval)
 
-		/*nvm.Set("parseActiveEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
-			return fparseEval(Out, evalrt, true, a...)
-		})
-
-		nvm.Set("parseEval", func(evalrt interface{}, a ...interface{}) (prsevalerr error) {
-			return fparseEval(Out, evalrt, false, a...)
-		})*/
 		nvm.Set("scheduling", SCHEDULING)
 		nvm.Set("schdlng", SCHEDULING)
 		nvm.Set("caching", CHACHING)
