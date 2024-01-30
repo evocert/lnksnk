@@ -66,7 +66,6 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			}
 		}()
 		var rnrr io.RuneReader = nil
-		//var sqlbuf *iorw.Buffer = nil
 		var qrybuf = iorw.NewBuffer()
 		var validNames []string
 		var validNameType []int
@@ -119,28 +118,7 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			}
 		} else {
 			if stmnthndlr != nil {
-				if fs != nil && qrybuf.HasSuffix(".sql") {
-					var tstsql = qrybuf.String()
-					if fscat := fs.CAT(tstsql); fscat == nil {
-						tstsql = tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"
-						if fscat = fs.CAT(tstsql); fscat != nil {
-							qrybuf.Clear()
-							if _, preperr = qrybuf.ReadFrom(fscat); preperr != nil {
-								return
-							}
-							qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true))...)
-						}
-					} else {
-						qrybuf.Clear()
-						if _, preperr = qrybuf.ReadFrom(fscat); preperr != nil {
-							return
-						}
-						qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true))...)
-					}
-					fs = nil
-				} else {
-					qrybuf.Print(stmnthndlr.Prepair(a...)...)
-				}
+				qrybuf.Print(stmnthndlr.Prepair(a...)...)
 			} else {
 				qrybuf.Print(a...)
 			}
@@ -175,7 +153,9 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 
 		}
 		defer qrybuf.Close()
-
+		if stmnthndlr != nil {
+			qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true)))
+		}
 		rnrr = qrybuf.Reader()
 		var foundTxt = false
 
@@ -184,27 +164,13 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 		var prmslbli = []int{0, 0}
 
 		rnsbuf := []rune{}
-		//rsnsbfi := 0
+
 		var appr = func(r rune) {
-			/*rnsbuf[rsnsbfi] = r
-			rsnsbfi++
-			if rsnsbfi == 8192 {
-				*stmntref += string(rnsbuf[:rsnsbfi])
-				rsnsbfi = 0
-			}*/
 			rnsbuf = append(rnsbuf, r)
 		}
 
 		var apprs = func(p []rune) {
 			if pl := len(p); pl > 0 {
-				/*for _, r := range p {
-					rnsbuf[rsnsbfi] = r
-					rsnsbfi++
-					if rsnsbfi == 8192 {
-						*stmntref += string(rnsbuf[:rsnsbfi])
-						rsnsbfi = 0
-					}
-				}*/
 				rnsbuf = append(rnsbuf, p...)
 			}
 		}
@@ -404,7 +370,7 @@ func (stmnt *Statement) Arguments() (args []interface{}) {
 						args = append(args, argv)
 					}
 				} else if prms := stmnt.prms; prms != nil && argtpe == 1 {
-					args = append(args, prms.Parameter(argnme), "")
+					args = append(args, strings.Join(prms.Parameter(argnme), ""))
 				} else if rdr != nil && argtpe == 2 {
 					if rows := rdr.rows; rows != nil {
 						if clsi := rows.FieldIndex(argnme); clsi > -1 {

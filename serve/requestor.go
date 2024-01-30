@@ -139,7 +139,10 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			stmntoutbuf := iorw.NewBuffer()
 			defer stmntoutbuf.Close()
 			stmntoutbuf.Print(ina...)
+			vmw := vm.W
+			vm.W = stmntoutbuf
 			vmParseEval(vm, ":no-cache/", ".js", time.Now(), stmntoutbuf, stmntoutbuf.Clone(true).Reader(true), fs, false, nil, nil, nil)
+			vm.W = vmw
 			a = append(a, stmntoutbuf.Clone(true).Reader(true))
 		} else {
 			a = append(a, ina...)
