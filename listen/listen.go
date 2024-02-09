@@ -16,7 +16,8 @@ import (
 	"time"
 
 	"github.com/evocert/lnksnk/concurrent"
-
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -60,10 +61,18 @@ func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
 
 func (lsnt *listen) ServeTLS(network string, addr string, orgname string, tlsconf ...*tls.Config) {
 	if lsnt != nil {
-		rsvldaddr, _ := net.ResolveTCPAddr(network, addr)
+		rsvldaddr, _ := net.ResolveTCPAddr(func() string {
+			if network == "quic" {
+				return "tcp"
+			}
+			return network
+		}(), addr)
+
 		host := rsvldaddr.IP.String()
+		certhost := host
 		if host == "" || host == "<nil>" {
-			host = "127.0.0.1"
+			host = "localhost"
+			certhost = host
 		}
 
 		if addrnames, _ := net.LookupHost(host); len(addrnames) > 0 {
@@ -72,9 +81,9 @@ func (lsnt *listen) ServeTLS(network string, addr string, orgname string, tlscon
 			}
 		}
 		if len(tlsconf) == 0 {
-			if publc, prv, err := GenerateTestCertificate(host, orgname); err == nil {
+			if publc, prv, err := GenerateTestCertificate(certhost, orgname); err == nil {
 				if cert, err := tls.X509KeyPair(publc, prv); err == nil {
-					tslcnf := &tls.Config{}
+					tslcnf := &tls.Config{InsecureSkipVerify: true}
 					tslcnf.Certificates = append(tslcnf.Certificates, cert)
 					tlsconf = append(tlsconf, tslcnf)
 				}
@@ -100,12 +109,13 @@ func NewListen(handerfunc http.HandlerFunc) *listen {
 }
 
 func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Config) {
+	if handler == nil && DefaultHandler != nil {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			DefaultHandler.ServeHTTP(w, r)
+		})
+	}
 	if strings.Contains(network, "tcp") {
-		if handler == nil && DefaultHandler != nil {
-			handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				DefaultHandler.ServeHTTP(w, r)
-			})
-		}
+
 		if handler != nil {
 			if ln, err := Listen(network, addr); err == nil { //net.Listen(network, addr); err == nil {
 
@@ -119,6 +129,17 @@ func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Co
 				return
 			}
 		}
+	} else if strings.Contains(network, "quic") {
+		if len(tlsconf) > 0 {
+			server := http3.Server{
+				Handler:    handler,
+				Addr:       addr,
+				TLSConfig:  http3.ConfigureTLSConfig(tlsconf[0].Clone()), // use your tls.Config here
+				QuicConfig: &quic.Config{},
+			}
+			go server.ListenAndServe()
+		}
+		//http3.ListenAndServeQUIC(addr, "/path/to/cert", "/path/to/key", handler)
 	}
 }
 
@@ -164,7 +185,7 @@ func GenerateTestCertificate(host string, orgname string) ([]byte, []byte, error
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		DNSNames:              []string{host},
 		BasicConstraintsValid: true,
-		IsCA:                  true,
+		IsCA:                  false,
 	}
 
 	certBytes, err := x509.CreateCertificate(
