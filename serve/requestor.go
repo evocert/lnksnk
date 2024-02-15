@@ -370,6 +370,9 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		}
 	}
 
+	if istexttype || strings.Contains(mimetipe, "text/plain") {
+		mimetipe += "; charset=utf-8"
+	}
 	if fi != nil {
 		if pathext != "" {
 
@@ -380,9 +383,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 						isactive = true
 					}
 				}
-			}
-			if istexttype || strings.Contains(mimetipe, "text/plain") {
-				mimetipe += "; charset=utf-8"
 			}
 			if Out != nil {
 				Out.Header().Set("Content-Type", mimetipe)
@@ -471,6 +471,10 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 					}
 				}
 			}
+		}
+	} else {
+		if Out != nil {
+			Out.Header().Set("Content-Type", mimetipe)
 		}
 	}
 	return
