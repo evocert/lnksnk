@@ -892,18 +892,18 @@ func internalProcessParsing(
 						if cdepsvbuf.Contains("${") || cdepsvbuf.Contains("`") {
 							cdeatvbuf.Print("`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), "`", "\\`", "${", "\\${"), "`")
 						} else {
-							cdeatvbuf.Print("`", cdepsvbuf.Clone(true).Reader(true), "`")
+							cdeatvbuf.Print("`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), "`")
 						}
 					}
 					cdelstr = 0
 				} else {
 					if hstmpltfx {
-						cdeatvbuf.Print("print(", cdepsvbuf.Clone(true).Reader(true), ");")
+						cdeatvbuf.Print("print(", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), ");")
 					} else {
 						if cdepsvbuf.Contains("${") || cdepsvbuf.Contains("`") {
-							cdeatvbuf.Print("print(`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), "`", "\\`", "${", "\\${"), "`);")
+							cdeatvbuf.Print("print(`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`, "`", "\\`", "${", "\\${"), "`);")
 						} else {
-							cdeatvbuf.Print("print(`", cdepsvbuf.Clone(true).Reader(true), "`);")
+							cdeatvbuf.Print("print(`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), "`);")
 						}
 					}
 				}
@@ -1048,7 +1048,6 @@ func internalProcessParsing(
 						} else {
 							cdelstr = 0
 						}
-						cdetmps += string(r)
 						if cdemde == "" {
 							if cdemde = validcdecnmst[cdetmps]; cdemde != "" {
 								cdetmps = ""
