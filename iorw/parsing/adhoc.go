@@ -111,6 +111,10 @@ func (eofrdr *untilrunereader) ReadRune() (r rune, size int, err error) {
 								break
 							}
 							eofrdr.eofprvr = rr
+							if len(eofrdr.rmngrns) > 0 {
+								eofrdr.rmngrns = append(eofrdr.rmngrns, rr)
+								break
+							}
 							return rr, utf8.RuneLen(rr), nil
 						}
 					}
