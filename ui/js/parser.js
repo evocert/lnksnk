@@ -522,8 +522,8 @@ function _parseEval(){
             }
             var xhttp = new XMLHttpRequest();
             xhttp.onreadystatechange = function() {
-                if (this.readyState == 4 && this.status == 200) {
-                    template.push(this.responseText);
+                if ((xhttp.readyState === XMLHttpRequest.DONE) && (this.status==0 || this.status == 200)) {
+                    template.push(this.responseText&&this.responseText!==null?this.responseText:"");
                 }
             };
             xhttp.onerror==function(){
@@ -567,7 +567,6 @@ function processContent(template) {
     if (template!==undefined&&template!==null) {
         conttentprepped=Array.isArray(template)?template.join(""):template;
     }
-    
     function extract(cntntprpd) {
         var trgtprelbl="[#:";
         var trgtpostlbl=":#]";
@@ -610,5 +609,7 @@ function processContent(template) {
     }
     if ((conttentprepped=extract(conttentprepped)).length>0){
         return conttentprepped
+    } else {
+        return "";
     }
 }
