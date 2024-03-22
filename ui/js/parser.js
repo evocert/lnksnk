@@ -392,7 +392,9 @@ function parseEval(){
 }
 
 function prepTargetContent(targetelem, cntnttoprep){
-    if (targetelem!==undefined && targetelem!==null && typeof targetelem ==="string" && targetelem!==""){
+    if (targetelem!==undefined && targetelem!==null && typeof targetelem ==="function"){
+        targetelem(cntnttoprep);
+    } else if (targetelem!==undefined && targetelem!==null && typeof targetelem ==="string" && targetelem!==""){
         var trgtsfound=document.querySelectorAll(targetelem);
         if (trgtsfound.length>0) {
             trgtsfound.forEach((trgtelm)=>{
