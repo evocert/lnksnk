@@ -293,10 +293,20 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		for actvkey, actvval := range activemap {
 			nvm.Set(actvkey, actvval)
 		}
-		nvm.Set("containsParameter", params.ContainsParameter)
-		nvm.Set("parameter", params.Parameter)
-		nvm.Set("fileParameter", params.FileParameter)
-		nvm.Set("fileParameterReader", params.FileReader)
+
+		var vmparam = map[string]interface{}{
+			"set":       params.SetParameter,
+			"get":       params.Parameter,
+			"exist":     params.ContainsParameter,
+			"fileExist": params.ContainsFileParameter,
+			"setFile":   params.SetFileParameter,
+			"getFile":   params.FileParameter,
+			"keys":      params.StandardKeys,
+			"fileKeys":  params.FileKeys,
+			"fileName":  params.FileName,
+		}
+
+		nvm.Set("param", vmparam)
 		nvm.Set("_in", In)
 		nvm.Set("_out", Out)
 		nvm.R = In
