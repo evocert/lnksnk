@@ -394,7 +394,7 @@ func (rdr *Reader) InsertAfterReader(aftrrdr *Reader, rdrs ...*Reader) (inserted
 
 func (rdr *Reader) NextReader() (nxtrdr *Reader) {
 	if rdr != nil {
-		if nxtrdrsl, nextreaders := len(nxtrdr.nextreaders), nxtrdr.nextreaders; nxtrdrsl > 0 {
+		if nxtrdrsl, nextreaders := len(rdr.nextreaders), rdr.nextreaders; nxtrdrsl > 0 {
 			nxtrdr = nextreaders[nxtrdrsl-1]
 		} else {
 			nxtrdr = rdr
@@ -1035,9 +1035,7 @@ func (rdr *Reader) DataMap(cols ...string) (datamap map[string]interface{}) {
 			cols = strings.Split(cols[0], ",")
 		}
 		if cls, data := rdr.Columns(cols...), rdr.Data(cols...); len(cls) > 0 && len(data) == len(cls) {
-			if datamap == nil {
-				datamap = map[string]interface{}{}
-			}
+			datamap = map[string]interface{}{}
 			for cn := range cls {
 				datamap[cls[cn]] = data[cn]
 			}
@@ -1114,14 +1112,10 @@ func castSQLTypeValue(valToCast interface{}, colType *ColumnType) (castedVal int
 			castedVal = valToCast
 		}
 	} else {
-		if valToCast == nil {
-			if strings.Contains(strings.ToLower(colType.databaseType), "char") {
-				castedVal = ""
-			} else if strings.Contains(strings.ToLower(colType.databaseType), "int") {
-				castedVal = ""
-			} else {
-				castedVal = valToCast
-			}
+		if strings.Contains(strings.ToLower(colType.databaseType), "char") {
+			castedVal = ""
+		} else if strings.Contains(strings.ToLower(colType.databaseType), "int") {
+			castedVal = ""
 		} else {
 			castedVal = valToCast
 		}
