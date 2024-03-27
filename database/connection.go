@@ -72,9 +72,6 @@ func (cn *Connection) DbInvoke() (db *sql.DB, dberr error) {
 						cn.cnsccount = 0
 						cn.lstcheck = time.Now()
 						cn.suggestedmaxcnss = 0
-						if sqldb != nil {
-							sqldb.Close()
-						}
 					}
 				}
 			}
