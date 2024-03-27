@@ -127,7 +127,7 @@ func (params *Parameters) SetParameter(pname string, clear bool, pvalue ...strin
 		}
 		if val, ok := standard.Load(pname); ok {
 			if clear {
-				standard.CompareAndSwap(pname, val, []string{})
+				standard.Swap(pname, []string{})
 				val, _ = standard.Load(pname)
 			}
 			var valsarr, _ = val.([]string)
@@ -352,7 +352,7 @@ func (params *Parameters) StringParameter(pname string, sep string, index ...int
 					if bfr != nil {
 						if bs, bserr := rnrtos(bfr); bserr == nil {
 							s += bs
-						} else if bserr != nil {
+						} else {
 							break
 						}
 					}
