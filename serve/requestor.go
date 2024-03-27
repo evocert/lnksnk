@@ -91,7 +91,7 @@ func vmParseEval(vm *active.VM, path, pathext string, pathmodified time.Time, Ou
 				})
 			}
 		}
-	} else if In != nil && fi == nil {
+	} else if In != nil {
 		err = parsing.Parse(false, true, pathmodified, path, "", pathext, Out, In, fs, invertactive, func(atvrdr *iorw.BuffReader, cdepgrm func() interface{}, setcdepgrm func(interface{})) (atverr error) {
 			if _, atverr = vm.Eval(atvrdr, cdepgrm, setcdepgrm); atverr != nil {
 				atverr = nil
