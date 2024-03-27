@@ -571,9 +571,10 @@ func internalProcessParsing(
 			}
 			cntprvr = cr
 		}
-		if !failed && chkerr != nil {
-			failed = true
-		} else if failed && chkerr == nil {
+
+		if !failed {
+			failed = chkerr != nil
+		} else if failed {
 			if lstcn > -1 {
 				resetCntntCheckElem(false, false, r[lstcn:]...)
 			} else {
@@ -1044,7 +1045,17 @@ func internalProcessParsing(
 				} else {
 					if !iorw.IsSpace(r) {
 						if validLastCdeRuneMap[r] > 0 {
-							cdelstr = r
+							if r == '/' {
+								if !strings.ContainsFunc("*/", func(r rune) bool {
+									return r == cdeprvr
+								}) {
+									cdelstr = r
+								} else {
+									cdelstr = 0
+								}
+							} else {
+								cdelstr = r
+							}
 						} else {
 							cdelstr = 0
 						}
