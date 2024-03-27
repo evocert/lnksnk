@@ -191,7 +191,7 @@ func readCsv(datardr *DataReader, rdr io.RuneReader) (done bool, err error) {
 				if rerr != nil {
 					break
 				}
-			} else if rerr != nil {
+			} else {
 				if rerr != io.EOF {
 					err = rerr
 				}
@@ -343,7 +343,7 @@ func readCsv(datardr *DataReader, rdr io.RuneReader) (done bool, err error) {
 					}
 					break
 				}
-			} else if rerr != nil {
+			} else {
 				if done = rerr == io.EOF; !done {
 					err = rerr
 				} else {
@@ -842,12 +842,12 @@ func (sqlrws *SqlRows) Columns(col ...string) (cols []string, err error) {
 								}
 							}
 						}
-					} else if rwerr != nil {
+					} else {
 						err = rwerr
 						sqlrws.lsterr = err
 						sqlrws.cancelContext(err)
 					}
-				} else if err != nil {
+				} else {
 					sqlrws.lsterr = err
 					sqlrws.cancelContext(err)
 				}
