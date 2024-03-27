@@ -39,6 +39,43 @@ func (dbmshndlr *DBMSHandler) Exists(alias string) (exists bool) {
 	return
 }
 
+func (dbmshndlr *DBMSHandler) TryConnect(dbtype string, datasource string) (connected interface{}) {
+	if dbmshndlr != nil && dbtype != "" {
+		if dbms := dbmshndlr.dbms; dbms != nil {
+			if datasource != "" {
+				if dbinvkr, _ := dbms.DriverCnInvoker(dbtype); dbinvkr != nil {
+					if db, dberr := dbinvkr(datasource); dberr != nil {
+						connected = dberr
+					} else if db != nil {
+						defer db.Close()
+						if dberr = db.Ping(); dberr != nil {
+							connected = dberr
+						} else {
+							connected = true
+						}
+					}
+				}
+			} else {
+				if cnctns := dbms.cnctns; cnctns != nil {
+					if cn, _ := cnctns.Load(dbtype); cn != nil {
+						if db, dberr := (cn.(*Connection)).DbInvoke(); dberr != nil {
+							connected = dberr
+						} else if db != nil {
+							defer db.Close()
+							if dberr = db.Ping(); dberr != nil {
+								connected = dberr
+							} else {
+								connected = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 func (dbmshndlr *DBMSHandler) DriverName(alias string) (driver string) {
 	if dbmshndlr != nil && alias != "" {
 		if dbms := dbmshndlr.dbms; dbms != nil {
