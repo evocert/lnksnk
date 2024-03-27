@@ -123,7 +123,17 @@ function buildFormData(){
                                 if(crntfrmdata===null){
                                     crntfrmdata=new FormData();
                                 }
-                                crntfrmdata.append(inname,invalue);
+                                if (inputelm instanceof HTMLInputElement){
+                                    if (inputelm.type==="radio"||inputelm.type==="checkbox"){
+                                        if(inputelm.checked){
+                                            crntfrmdata.append(inname,invalue); 
+                                        }
+                                    } else {
+                                        crntfrmdata.append(inname,invalue);
+                                    }
+                                } else {
+                                    crntfrmdata.append(inname,invalue);
+                                }
                             }   
                         }
                     }
@@ -161,7 +171,17 @@ function buildFormData(){
                                 if(crntfrmdata===null){
                                     crntfrmdata=new FormData();
                                 }
-                                crntfrmdata.append(inname,invalue);
+                                if (inputelm instanceof HTMLInputElement){
+                                    if (inputelm.type==="radio"||inputelm.type==="checkbox"){
+                                        if(inputelm.checked){
+                                            crntfrmdata.append(inname,invalue); 
+                                        }
+                                    } else {
+                                        crntfrmdata.append(inname,invalue);
+                                    }
+                                } else {
+                                    crntfrmdata.append(inname,invalue);
+                                }
                             }   
                         }
                     }
