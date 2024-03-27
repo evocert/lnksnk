@@ -45,7 +45,7 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 			path = path[:nocachsep] + path[nocachsep+len(":no-cache/"):]
 		}
 	}
-	path, pathroot, defaultext = prepPathAndRoot(path, pathroot, defaultext)
+	path, pathroot, _ = prepPathAndRoot(path, pathroot, defaultext)
 	fullpath := pathroot + path
 
 	if cancache {
@@ -55,10 +55,7 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 			}
 			return fullpath
 		}()); chdscrpt != nil {
-			if !chdscrpt.IsValidSince(pathModified, fs) {
-				chdscrpt.Dispose()
-				chdscrpt = nil
-			} else if chdscrpt != nil {
+			if chdscrpt.IsValidSince(pathModified, fs) {
 				if out != nil {
 					_, canprserr = chdscrpt.WritePsvTo(out)
 				}
@@ -69,6 +66,9 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 				}
 				return
 			}
+			chdscrpt.Dispose()
+			chdscrpt = nil
+			return
 		}
 	}
 	canprse = canprserr == nil
