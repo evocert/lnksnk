@@ -111,18 +111,29 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			ai++
 		}
 		if vqry, vqryfnd := cchng.Find(a...); vqryfnd && vqry != nil {
-			if stmnthndlr != nil {
-				qrybuf.Print(stmnthndlr.Prepair(vqry)...)
-			} else {
-				qrybuf.Print(vqry)
-			}
+			qrybuf.Print(vqry)
 		} else {
-			if stmnthndlr != nil {
-				qrybuf.Print(stmnthndlr.Prepair(a...)...)
+			qrybuf.Print(a...)
+		}
+
+		if fs != nil && qrybuf.HasSuffix(".sql") {
+			var tstsql = qrybuf.String()
+			if fscat := fs.CAT(tstsql); fscat == nil {
+				tstsql = tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"
+				if fscat = fs.CAT(tstsql); fscat != nil {
+					qrybuf.Clear()
+					_, preperr = qrybuf.ReadFrom(fscat)
+				}
 			} else {
-				qrybuf.Print(a...)
+				qrybuf.Clear()
+				_, preperr = qrybuf.ReadFrom(fscat)
 			}
 		}
+
+		if stmnthndlr != nil {
+			qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true)))
+		}
+
 		if qrybuf.HasPrefix("#") && qrybuf.HasSuffix("#") {
 			if substrqry, _ := qrybuf.SubString(1, qrybuf.Size()-1); substrqry != "" {
 				subqryarr := strings.Split(substrqry, "=>")
@@ -138,24 +149,11 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 					qrybuf.Print(substrqry)
 				}
 			}
-		} else if fs != nil && qrybuf.HasSuffix(".sql") {
-			var tstsql = qrybuf.String()
-			if fscat := fs.CAT(tstsql); fscat == nil {
-				tstsql = tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"
-				if fscat = fs.CAT(tstsql); fscat != nil {
-					qrybuf.Clear()
-					_, preperr = qrybuf.ReadFrom(fscat)
-				}
-			} else {
-				qrybuf.Clear()
-				_, preperr = qrybuf.ReadFrom(fscat)
-			}
-
 		}
 		defer qrybuf.Close()
-		if stmnthndlr != nil {
-			qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true)))
-		}
+		//if stmnthndlr != nil {
+		//	qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true)))
+		//}
 		rnrr = qrybuf.Reader()
 		var foundTxt = false
 
@@ -306,7 +304,7 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 		for r, rs, rerr := rnrr.ReadRune(); rs > 0 && rerr == nil; r, rs, rerr = rnrr.ReadRune() {
 			if rs > 0 {
 				parseRune(r)
-			} else if rerr != nil {
+			} else {
 				if rerr != io.EOF {
 					preperr = rerr
 					return
