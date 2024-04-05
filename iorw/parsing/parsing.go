@@ -57,18 +57,26 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 		}()); chdscrpt != nil {
 			if chdscrpt.IsValidSince(pathModified, fs) {
 				if out != nil {
-					_, canprserr = chdscrpt.WritePsvTo(out)
-				}
-				if canprserr == nil && evalcode != nil {
+					if _, canprserr = chdscrpt.WritePsvTo(out); canprserr != nil {
+						chdscrpt.Dispose()
+						chdscrpt = nil
+						return
+					} else if evalcode != nil {
+						if canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
+							chdscrpt.Dispose()
+						}
+						return
+					}
+				} else if evalcode != nil {
 					if canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
 						chdscrpt.Dispose()
 					}
+					return
 				}
-				return
+			} else {
+				chdscrpt.Dispose()
+				chdscrpt = nil
 			}
-			chdscrpt.Dispose()
-			chdscrpt = nil
-			return
 		}
 	}
 	canprse = canprserr == nil
