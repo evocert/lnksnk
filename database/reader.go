@@ -643,6 +643,16 @@ func (rdr *Reader) ToJSON(w io.Writer, layout string, cols ...string) (err error
 	return
 }
 
+func (rdr *Reader) DataSet(cols ...string) (dataset []interface{}, err error) {
+	if rdr != nil {
+		err = rdr.ForEachDataMap(func(data map[string]interface{}, nr int64, first, last bool) (done bool) {
+			dataset = append(dataset, data)
+			return
+		}, cols...)
+	}
+	return
+}
+
 func (rdr *Reader) ExecEachPrepaired(execerr func(*Executor, int, error), execs ...*Executor) (err error) {
 	if rdr != nil && len(execs) > 0 && execerr != nil {
 		for execn, exec := range execs {
