@@ -190,6 +190,21 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			var evalroot, _ = evalrt.(string)
 			if prsout == nil {
 				prsout = Out
+			} else if prsout != Out {
+				if nvm.W == Out {
+					nvm.SetPrinter(prsout)
+					defer func() {
+						nvm.SetPrinter(Out)
+					}()
+				}
+			}
+			if strings.HasSuffix(evalroot, "/") {
+				for _, evlpth := range []string{"index.html", "index.js"} {
+					if fis := fs.LS(evalroot + evlpth); len(fis) == 1 {
+						prsevalerr = vmParseEval(nvm, fis[0].Path(), ".js", fis[0].ModTime(), prsout, nil, fs, invert, fis[0], nil, nil)
+						return
+					}
+				}
 			}
 			if fis := fs.LS(evalroot + ".js"); len(fis) == 1 {
 				prsevalerr = vmParseEval(nvm, fis[0].Path(), ".js", fis[0].ModTime(), prsout, nil, fs, invert, fis[0], nil, nil)
