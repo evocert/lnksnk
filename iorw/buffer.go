@@ -2,6 +2,7 @@ package iorw
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"sync"
 	"unicode/utf8"
@@ -1186,6 +1187,26 @@ func (buff *Buffer) Clear() (err error) {
 	return
 }
 
+func (buff *Buffer) Array(args ...interface{}) (arr []interface{}, err error) {
+	if buff != nil {
+		if buffr := buff.Reader(args...); buffr != nil {
+			defer buffr.Close()
+			arr, err = buffr.Array()
+		}
+	}
+	return
+}
+
+func (buff *Buffer) Map(args ...interface{}) (mp map[string]interface{}, err error) {
+	if buff != nil {
+		if buffr := buff.Reader(args...); buffr != nil {
+			defer buffr.Close()
+			mp, err = buffr.Map()
+		}
+	}
+	return
+}
+
 // BuffReader -
 type BuffReader struct {
 	buffer  *Buffer
@@ -1695,39 +1716,6 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 				bufr.buffer.lck.RLock()
 				defer bufr.buffer.lck.RUnlock()
 				var adjustOffsetRead = func() {
-					/*var rnbufi = 0
-					var bufl = bufr.buffer.BuffersLen()
-					var bflen = 0
-					var bufbfs = int64(0)
-					if bufl > 0 {
-						bflen = len(bufr.buffer.buffer[0])
-						bufbfs = (int64(bufl) * int64(bflen))
-					}
-					if bufl > 0 && n < (int64(bufl)*int64(bflen)) {
-						if n < int64(bflen) {
-							rnbufi = 0
-						} else {
-							rnbufi = int(n / int64(bflen))
-						}
-						bufr.rbytesi = int(n % int64(bflen))
-						bufr.rbytes = bufr.buffer.buffer[rnbufi]
-						bufr.rbufferi = rnbufi
-					} else if n < bufs {
-						if bflen > 0 {
-							if n < int64(bflen) {
-								rnbufi = 0
-							}
-							if n == (int64(bufl) * int64(bflen)) {
-								bufr.rbytesi = 0
-							} else {
-								bufr.rbytesi = int(n % (bufs - bufbfs))
-							}
-						} else {
-							bufr.rbufferi = rnbufi
-							bufr.rbytesi = int(n % (bufs - bufbfs))
-						}
-						bufr.rbytes = bufr.buffer.bytes[:bufr.buffer.bytesi]
-					}*/
 					bufr.bufcur.reset(true, n, bufs)
 					adjusted = true
 				}
@@ -1770,6 +1758,26 @@ func (bufr *BuffReader) Seek(offset int64, whence int) (n int64, err error) {
 		}
 	} else {
 		n = -1
+	}
+	return
+}
+
+func (bufr *BuffReader) Array() (arr []interface{}, err error) {
+	if bufr != nil {
+		if arr == nil {
+			arr = []interface{}{}
+		}
+		err = json.NewDecoder(bufr).Decode(&arr)
+	}
+	return
+}
+
+func (bufr *BuffReader) Map() (mp map[string]interface{}, err error) {
+	if bufr != nil {
+		if mp == nil {
+			mp = map[string]interface{}{}
+		}
+		err = json.NewDecoder(bufr).Decode(&mp)
 	}
 	return
 }
