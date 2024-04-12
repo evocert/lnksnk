@@ -140,6 +140,28 @@ func (dbmshndlr *DBMSHandler) Dispose() {
 	}
 }
 
+func (dbmshndlr *DBMSHandler) QryArray(alias string, a ...interface{}) []interface{} {
+	return dbmshndlr.QueryArray(alias, a...)
+}
+
+func (dbmshndlr *DBMSHandler) QueryArray(alias string, a ...interface{}) (arr []interface{}) {
+	if rdr := dbmshndlr.Query(alias, a...); rdr != nil {
+		arr = rdr.AsArray()
+	}
+	return
+}
+
+func (dbmshndlr *DBMSHandler) QryMap(alias string, a ...interface{}) map[string]interface{} {
+	return dbmshndlr.QueryMap(alias, a...)
+}
+
+func (dbmshndlr *DBMSHandler) QueryMap(alias string, a ...interface{}) (mp map[string]interface{}) {
+	if rdr := dbmshndlr.Query(alias, a...); rdr != nil {
+		mp = rdr.AsMap()
+	}
+	return
+}
+
 func (dbmshndlr *DBMSHandler) Qry(alias string, a ...interface{}) *Reader {
 	return dbmshndlr.Query(alias, a...)
 }
