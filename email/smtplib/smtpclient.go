@@ -192,7 +192,9 @@ func SendMail(username string, password string, host string, mode string, modeop
 func (smptclnt *SMTPClient) SendMail(emailwtrs ...*emailwriter.EmailWriter) (err error) {
 	c, err := smtpe.Dial(smptclnt.host)
 	if err != nil {
-		return err
+		if c, err = smtpe.DialStartTLS(smptclnt.host, nil); err != nil {
+			return err
+		}
 	}
 	defer c.Close()
 	//if err = c.Hello("localhost"); err != nil {
@@ -200,10 +202,12 @@ func (smptclnt *SMTPClient) SendMail(emailwtrs ...*emailwriter.EmailWriter) (err
 	//}
 	//var startedtls = false
 	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err = c.StartTLS(nil); err != nil {
+		c.Close()
+		if c, err = smtpe.DialStartTLS(smptclnt.host, nil); err != nil {
 			return err
 		} else {
 			//startedtls = true
+			defer c.Close()
 		}
 	}
 
