@@ -417,6 +417,25 @@ func (rdr *Reader) IsLast() (last bool) {
 	return
 }
 
+func (rdr *Reader) AsMap(cols ...string) (mp map[string]interface{}) {
+	if rdr != nil {
+		mp = map[string]interface{}{}
+		mp["colums"] = rdr.Columns()
+		mp["data"] = rdr.AsArray(cols...)
+	}
+	return
+}
+
+func (rdr *Reader) AsArray(cols ...string) (arr []interface{}) {
+	if rdr != nil {
+		rdr.ForEachDataMap(func(dta map[string]interface{}, rwrn int64, first, last bool) bool {
+			arr = append(arr, dta)
+			return last
+		}, cols...)
+	}
+	return
+}
+
 func (rdr *Reader) CSVReader(a ...interface{}) (eofr *iorw.EOFCloseSeekReader) {
 	if rdr != nil {
 		pi, pw := io.Pipe()
