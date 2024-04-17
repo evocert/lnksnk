@@ -346,18 +346,10 @@ var DefaultTransformCode func(code string) (transformedcode string, errors []str
 func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 	if vm != nil && vm.vm != nil {
 		var cdes = ""
-		//var chdscrpt *parsing.CachedScript = nil
 		var chdprgm func() interface{} = nil
 		var setchdprgm func(interface{})
 		var ai, ail = 0, len(a)
 		for ai < ail {
-			/*if chdscrptd, chdscrptdok := a[ai].(*parsing.CachedScript); chdscrptdok {
-				if chdscrpt == nil && chdscrptd != nil {
-					chdscrpt = chdscrptd
-				}
-				ail--
-				a = append(a[:ai], a[ai+1:]...)
-			} else*/
 			if chdpgrmd, chdpgrmdok := a[ai].(func() interface{}); chdpgrmdok {
 				if chdprgm == nil && chdpgrmd != nil {
 					chdprgm = chdpgrmd
