@@ -1010,7 +1010,7 @@ func (buff *Buffer) WriteSubOffsetTo(w io.Writer, offsets ...int64) (n int64, er
 }
 
 func (buff *Buffer) WriteTo(w io.Writer) (n int64, err error) {
-	if bufs := buff.Size(); bufs > 0 {
+	if bufs := buff.Size(); bufs > 0 && w != nil {
 		n, err = internalBufferWriteToOffSet(buff, w, 0, bufs, bufs, nil)
 	}
 	return
