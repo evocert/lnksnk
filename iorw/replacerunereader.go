@@ -3,13 +3,16 @@ package iorw
 import (
 	"bufio"
 	"io"
+	"sort"
 	"strings"
 )
 
 type ReplaceRuneReader struct {
 	orgrdr    *RuneReaderSlice
+	org, crnt bool
 	crntrdr   io.RuneReader
 	rplcewith map[string]interface{}
+	rplcekeys []string
 	mxlrplcL  int
 	OnClose   func(*ReplaceRuneReader, error) (err error)
 }
@@ -36,11 +39,17 @@ func (rplcerrdr *ReplaceRuneReader) ReplaceWith(phrase, replacewith interface{})
 		if sphrase, _ := phrase.(string); sphrase != "" {
 			if rplcerrdr.rplcewith == nil {
 				rplcerrdr.rplcewith = map[string]interface{}{}
+				rplcerrdr.mxlrplcL = 0
 			}
 			if phrsl := len(sphrase); phrsl > rplcerrdr.mxlrplcL {
 				rplcerrdr.mxlrplcL = phrsl
 			}
 			rplcerrdr.rplcewith[sphrase] = replacewith
+			rplcerrdr.rplcekeys = []string{}
+			for rplckey := range rplcerrdr.rplcewith {
+				rplcerrdr.rplcekeys = append(rplcerrdr.rplcekeys, rplckey)
+			}
+			sort.Strings(rplcerrdr.rplcekeys)
 		}
 	}
 }
@@ -66,94 +75,113 @@ func replacedWithReader(rplcewith map[string]interface{}, phrase string, isrepea
 	return
 }
 
+func underlineReadRune(rplcerrdr *ReplaceRuneReader) (r rune, size int, err error) {
+	if rplcerrdr.crnt = (rplcerrdr.crntrdr != nil); rplcerrdr.crnt {
+		r, size, err = rplcerrdr.crntrdr.ReadRune()
+		if size == 0 && err == io.EOF {
+			if rplcerrdr.crntrdr == rplcerrdr.orgrdr {
+				rplcerrdr.orgrdr = nil
+			}
+			rplcerrdr.crntrdr = nil
+			r, size, err = underlineReadRune(rplcerrdr)
+			return
+		}
+		if err == io.EOF {
+			rplcerrdr.crntrdr = nil
+			if rplcerrdr.crntrdr == rplcerrdr.orgrdr {
+				rplcerrdr.orgrdr = nil
+				rplcerrdr.crnt = false
+				rplcerrdr.org = false
+			} else {
+				err = nil
+			}
+			return
+		}
+	} else if rplcerrdr.org = (rplcerrdr.orgrdr != nil); rplcerrdr.org {
+		if r, size, err = rplcerrdr.orgrdr.ReadRune(); size == 0 {
+			rplcerrdr.orgrdr = nil
+			rplcerrdr.org = false
+		}
+		return
+	}
+	if size == 0 {
+		err = io.EOF
+	}
+	return
+}
+
 func (rplcerrdr *ReplaceRuneReader) ReadRune() (r rune, size int, err error) {
 	if rplcerrdr != nil {
-		if rplcerrdr.crntrdr == nil && rplcerrdr.orgrdr != nil {
-			if len(rplcerrdr.rplcewith) > 0 {
-				tst := ""
-				tstl := 0
-				vldkeys := []string{}
-				vldksi := 0
-				vldksl := 0
-				mxkl := 0
-				for (rplcerrdr.orgrdr != nil) && rplcerrdr.crntrdr == nil {
-					if rplcerrdr.orgrdr != nil {
-						r, size, err = rplcerrdr.orgrdr.ReadRune()
-					} else {
-						r, size, err = 0, 0, io.EOF
+		if rplcerrdr.mxlrplcL == 0 {
+			if rplcerrdr.orgrdr != nil {
+				if r, size, err = rplcerrdr.orgrdr.ReadRune(); size == 0 && err == nil {
+					err = io.EOF
+				}
+			}
+			return
+		}
+		for err == nil {
+			if r, size, err = underlineReadRune(rplcerrdr); rplcerrdr.crnt || (!rplcerrdr.crnt && !rplcerrdr.org) {
+				return
+			}
+			if rplcerrdr.mxlrplcL > 0 && size > 0 && (rplcerrdr.org) {
+				mtcdids := map[int]bool{}
+				for rpi, rplk := range rplcerrdr.rplcekeys {
+					if !mtcdids[rpi] {
+						if rplk[0:1] == string(r) {
+							mtcdids[rpi] = true
+						}
 					}
-					if size > 0 {
-						tst += string(r)
-						tstl++
-						if vldksl == 0 {
-							for kv := range rplcerrdr.rplcewith {
-								if kvl := len(kv); kv[:tstl] == tst {
-									vldkeys = append(vldkeys, kv)
-									vldksl++
-									if mxkl < kvl {
-										mxkl = kvl
-									}
-								}
+				}
+				if len(mtcdids) == 0 {
+					return
+				}
+				txtrns := make([]rune, rplcerrdr.mxlrplcL)
+				for rplci := range rplcerrdr.mxlrplcL {
+					txtrns[rplci] = r
+					for rpi, rplk := range rplcerrdr.rplcekeys {
+						if !mtcdids[rpi] {
+							if len(rplk) > rplci && rplk[0:rplci+1] == string(txtrns[0:rplci+1]) {
+								mtcdids[rpi] = true
 							}
-							if vldksl == 1 && tstl == mxkl {
-								rplcerrdr.crntrdr = replacedWithReader(rplcerrdr.rplcewith, vldkeys[vldksi], true) // strings.NewReader(rplcerrdr.rplcewith[vldkeys[vldksi]])
-							} else if vldksi == vldksl && rplcerrdr.crntrdr == nil {
-								return r, size, nil
+						} else if mtcdids[rpi] && len(rplk) >= (rplci+1) && rplk[0:rplci+1] != string(txtrns[0:rplci+1]) {
+							delete(mtcdids, rpi)
+						}
+					}
+					if len(mtcdids) == 0 {
+						rplcerrdr.crntrdr = strings.NewReader(string(txtrns[:rplci+1]))
+						clear(txtrns)
+						r, size, err = underlineReadRune(rplcerrdr)
+						return
+					} else {
+						if rplci < (rplcerrdr.mxlrplcL - 1) {
+							if r, size, err = rplcerrdr.orgrdr.ReadRune(); size > 0 && (err == io.EOF || err == nil) {
+								if err == io.EOF {
+									err = nil
+								}
+							} else {
+								break
 							}
 						} else {
-							vldksi = 0
-							for rplcerrdr.crntrdr == nil && vldksi < vldksl {
-								if vldkl := len(vldkeys[vldksi]); vldkeys[vldksi][:tstl] == tst {
-									if vldkl == tstl {
-										rplcerrdr.crntrdr = replacedWithReader(rplcerrdr.rplcewith, vldkeys[vldksi], true) // strings.NewReader(rplcerrdr.rplcewith[vldkeys[vldksi]])
-										break
-									} else if vldksl > 1 {
-										vldksi++
-									} else {
-										break
-									}
-								} else {
-									vldkeys = append(vldkeys[:vldksi], vldkeys[vldksi+1:]...)
-									vldksl--
-									if vldksl == 0 && rplcerrdr.crntrdr == nil {
-										if tst[tstl-1:] != "" {
-											rplcerrdr.orgrdr.PreAppend(strings.NewReader(tst[tstl-1:]))
-										}
-										rplcerrdr.crntrdr = strings.NewReader(tst[:tstl-1])
-									}
+							if len(mtcdids) == 1 {
+								for fndid, _ := range mtcdids {
+									rplcerrdr.crntrdr = replacedWithReader(rplcerrdr.rplcewith, rplcerrdr.rplcekeys[fndid], true)
+									clear(txtrns)
+									r, size, err = underlineReadRune(rplcerrdr)
+									return
 								}
+							} else {
+								rplcerrdr.crntrdr = strings.NewReader(string(txtrns[:rplci+1]))
+								clear(txtrns)
+								r, size, err = underlineReadRune(rplcerrdr)
+								return
 							}
 						}
 					}
-					if err == io.EOF {
-						rplcerrdr.orgrdr = nil
-						if tst != "" {
-							rplcerrdr.crntrdr = strings.NewReader(tst)
-						}
-					}
 				}
-			} else {
-				rplcerrdr.crntrdr = rplcerrdr.orgrdr
+				continue
 			}
-		}
-		if rplcerrdr.crntrdr != nil {
-			r, size, err = rplcerrdr.crntrdr.ReadRune()
-			if size == 0 && err == io.EOF {
-				if rplcerrdr.crntrdr == rplcerrdr.orgrdr {
-					rplcerrdr.orgrdr = nil
-				}
-				rplcerrdr.crntrdr = nil
-				r, size, err = rplcerrdr.ReadRune()
-				return
-			} else if err == io.EOF {
-				rplcerrdr.crntrdr = nil
-				if rplcerrdr.crntrdr == rplcerrdr.orgrdr {
-					rplcerrdr.orgrdr = nil
-				} else {
-					err = nil
-				}
-				return
-			}
+			break
 		}
 	}
 	if size == 0 && err == nil {
