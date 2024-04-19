@@ -144,14 +144,14 @@ func (chdscrpt *CachedScript) EvalAtv(evalatv func(*iorw.BuffReader, func() inte
 	return
 }
 
-func newCachedScript(chdscrptng *CachedScripting, path string, modified time.Time, psvbuf *iorw.Buffer, atvbuf *iorw.Buffer, validElems map[string]*elemfound) (chdscrpt *CachedScript) {
+func newCachedScript(chdscrptng *CachedScripting, path string, modified time.Time, psvbuf *iorw.Buffer, atvbuf *iorw.Buffer, validElems map[string]time.Time) (chdscrpt *CachedScript) {
 	chdscrpt = &CachedScript{chdscrptng: chdscrptng, path: path, modified: modified}
 	if len(validElems) > 0 {
 		if chdscrpt.chdsublems == nil {
 			chdscrpt.chdsublems = concurrent.NewMap()
 		}
-		for _, velm := range validElems {
-			chdscrpt.chdsublems.Set(velm.FullPath(), velm.Modified())
+		for velmfullpath, velmmod := range validElems {
+			chdscrpt.chdsublems.Set(velmfullpath, velmmod)
 		}
 	}
 	if psvbuf != nil {
@@ -167,7 +167,7 @@ type CachedScripting struct {
 	chdscrpts *concurrent.Map
 }
 
-func (chdscrptng *CachedScripting) Load(modified time.Time, psvbuf *iorw.Buffer, atvbuf *iorw.Buffer, validElems map[string]*elemfound, path string) (chdscrpt *CachedScript) {
+func (chdscrptng *CachedScripting) Load(modified time.Time, psvbuf *iorw.Buffer, atvbuf *iorw.Buffer, validElems map[string]time.Time, path string) (chdscrpt *CachedScript) {
 	if chdscrptng != nil {
 		if path != "" {
 			chdscrptok := false
