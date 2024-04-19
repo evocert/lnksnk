@@ -34,10 +34,6 @@ func (rnrdrsslce *RuneReaderSlice) PreAppend(rdrs ...io.RuneReader) {
 func (rnrdrsslce *RuneReaderSlice) PostAppend(rdrs ...io.RuneReader) {
 	if rnrdrsslce != nil {
 		if len(rdrs) > 0 {
-			if rnrdrsslce.crntrdr != nil {
-				rdrs = append(rdrs, rnrdrsslce.crntrdr)
-				rnrdrsslce.crntrdr = nil
-			}
 			rnrdrsslce.rnrdrs = append(rnrdrsslce.rnrdrs, rdrs...)
 		}
 	}
