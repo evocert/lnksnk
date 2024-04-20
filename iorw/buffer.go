@@ -778,11 +778,11 @@ func (buff *Buffer) Size() (s int64) {
 }
 
 // ReadRunesFrom - refere to io.ReaderFrom
-func (buff *Buffer) ReadRunesFrom(r io.Reader) (n int64, err error) {
+func (buff *Buffer) ReadRunesFrom(r interface{}) (n int64, err error) {
 	if r != nil {
 		var rnsr io.RuneReader = nil
 		if rnsr, _ = r.(io.RuneReader); rnsr == nil {
-			rnsr = bufio.NewReader(r)
+			rnsr = bufio.NewReader(r.(io.Reader))
 		}
 		var p = make([]rune, 4096)
 		var ppi = 0
