@@ -3,6 +3,7 @@ package iorw
 import (
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 )
 
@@ -35,26 +36,57 @@ func (mltiargsr *MultiArgsReader) CanRead() (canread bool) {
 	return
 }
 
+type FuncString interface {
+	String() string
+}
+
+var validargrdrkind = map[reflect.Kind]bool{
+	reflect.Bool:       true,
+	reflect.Complex128: true,
+	reflect.Complex64:  true,
+	reflect.Float32:    true,
+	reflect.Float64:    true,
+	reflect.Int:        true,
+	reflect.Int16:      true,
+	reflect.Int32:      true,
+	reflect.Int64:      true,
+	reflect.Uint:       true,
+	reflect.Uint16:     true,
+	reflect.Uint32:     true,
+	reflect.Uint64:     true,
+	reflect.String:     true}
+
 func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader, nxtrnrdr io.RuneReader) {
 	if mltiargsr != nil {
-		for nxtrdr == nil && len(mltiargsr.args) > 0 {
+		for len(mltiargsr.args) > 0 {
 			d := mltiargsr.args[0]
 			mltiargsr.args = mltiargsr.args[1:]
 			if d != nil {
 				if s, _ := d.(string); s != "" {
 					nxtrdr = strings.NewReader(s)
-				} else if rdr, _ := d.(io.Reader); rdr != nil {
-					nxtrdr = rdr
-				} else {
-					nxtrdr = strings.NewReader(fmt.Sprint(d))
+					nxtrnrdr, _ = nxtrdr.(io.RuneReader)
+					return
 				}
-			} else {
-				continue
-			}
-		}
-		if nxtrdr != nil {
-			if nxtrnrdr, _ = nxtrdr.(io.RuneReader); nxtrnrdr == nil {
-				nxtrnrdr = NewEOFCloseSeekReader(nxtrdr, false)
+				if nxtrdr, _ = d.(io.Reader); nxtrdr != nil {
+					if nxtrnrdr, _ = nxtrdr.(io.RuneReader); nxtrnrdr == nil {
+						nxtrnrdr = NewEOFCloseSeekReader(nxtrdr, false)
+					}
+					return
+				}
+				if nxtrnrdr, _ = d.(io.RuneReader); nxtrnrdr != nil {
+					nxtrdr, _ = nxtrnrdr.(io.Reader)
+					return
+				}
+				if dtpe := reflect.TypeOf(d); validargrdrkind[dtpe.Kind()] {
+					nxtrdr = strings.NewReader(fmt.Sprint(d))
+					nxtrnrdr, _ = nxtrdr.(io.RuneReader)
+					return
+				}
+				if fncs, _ := d.(FuncString); fncs != nil {
+					nxtrdr = strings.NewReader(fncs.String())
+					nxtrnrdr, _ = nxtrdr.(io.RuneReader)
+					return
+				}
 			}
 		}
 	}
