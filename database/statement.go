@@ -117,22 +117,24 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 		}
 
 		if fs != nil && qrybuf.HasSuffix(".sql") {
-			var tstsql = qrybuf.String()
-			if fscat := fs.CAT(tstsql); fscat == nil {
-				tstsql = tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"
-				if fscat = fs.CAT(tstsql); fscat != nil {
-					qrybuf.Clear()
-					_, preperr = qrybuf.ReadFrom(fscat)
+			if fi := func() fsutils.FileInfo {
+				tstsql := qrybuf.String()
+				if fio := fs.LS(tstsql); len(fio) == 1 {
+					return fio[0]
 				}
-			} else {
+				if fio := fs.LS(tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"); len(fio) == 1 {
+					return fio[0]
+				}
+				return nil
+			}(); fi != nil && stmnthndlr != nil {
 				qrybuf.Clear()
-				_, preperr = qrybuf.ReadFrom(fscat)
+				qrybuf.Print(stmnthndlr.Prepair(fi))
 			}
 		}
 
-		if stmnthndlr != nil {
+		/*if stmnthndlr != nil {
 			qrybuf.Print(stmnthndlr.Prepair(qrybuf.Clone(true).Reader(true)))
-		}
+		}*/
 
 		if qrybuf.HasPrefix("#") && qrybuf.HasSuffix("#") {
 			if substrqry, _ := qrybuf.SubString(1, qrybuf.Size()-1); substrqry != "" {
