@@ -174,13 +174,11 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			})
 			var fparseEval = func(prsout io.Writer, evalrt interface{}, a ...interface{}) (prsevalerr error) {
 				var invert bool = false
-				var fitouse = fi
-				if len(a) > 0 {
-					if inv, invok := a[0].(bool); invok {
-						invert = inv
-						a = a[1:]
-					}
-				}
+				var fitouse fsutils.FileInfo = nil
+				var fstouse *fsutils.FSUtils = nil
+				var prin, _ = evalrt.(io.Reader)
+				var evalroot, _ = evalrt.(string)
+				var suggestedroot = "/"
 				if prsout == nil {
 					prsout = Out
 				} else if prsout != Out {
@@ -191,15 +189,89 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 						}()
 					}
 				}
-				var evalroot, _ = evalrt.(string)
-				if evalroot != "" {
-					if fios := fs.LS(evalroot); len(fios) == 1 {
-						fitouse = fios[0]
-						evalroot = fitouse.PathRoot()
+				if len(a) > 0 {
+					if inv, invok := a[0].(bool); invok {
+						invert = inv
+						a = a[1:]
 					}
 				}
-				var prin, _ = evalrt.(io.Reader)
-				var suggestedroot = "/"
+				ai := 0
+				al := len(a)
+				for ai < al {
+					d := a[ai]
+					if fid, _ := d.(fsutils.FileInfo); fid != nil {
+						if fitouse == nil {
+							fitouse = fid
+						}
+						a = append(a[:ai], a[ai+1:])
+						al--
+						continue
+					}
+					if fsd, _ := d.(*fsutils.FSUtils); fsd != nil {
+						if fstouse == nil {
+							fstouse = fsd
+						}
+						a = append(a[:ai], a[ai+1:])
+						al--
+						continue
+					}
+					ai++
+				}
+
+				if fstouse == nil && fs != nil {
+					fstouse = fs
+				}
+
+				if fstouse != nil {
+					if fitouse == nil {
+						if evalroot != "" && prin == nil {
+							if fios := fs.LS(evalroot); len(fios) == 1 {
+								fitouse = fios[0]
+								evalroot = fitouse.PathRoot()
+								if !fitouse.IsDir() {
+									prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
+									return
+								}
+								for _, evlpth := range []string{"index.html", "index.js"} {
+									if fis := fstouse.LS(evalroot + evlpth); len(fis) == 1 {
+										fitouse = fis[0]
+										prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
+										return
+									}
+								}
+							}
+						}
+						fitouse = fi
+					}
+				}
+
+				if fitouse != nil {
+					suggestedroot = fitouse.PathRoot()
+				}
+
+				if evalroot != "" && prin == nil {
+					prin = strings.NewReader(evalroot)
+				}
+
+				if prin == nil && len(a) > 0 {
+					func() {
+						defer prsevalbuf.Clear()
+						if prsevalbuf == nil {
+							prsevalbuf = iorw.NewBuffer()
+							prsevalbuf.Print(a...)
+						} else {
+							prsevalbuf.Clear()
+							prsevalbuf.Print(a...)
+						}
+						if prsevalbuf.Size() > 0 {
+							prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fstouse, invert, nil, nil, nil)
+						}
+					}()
+				} else if prin != nil {
+					prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fstouse, invert, nil, nil, nil)
+				}
+				/*var suggestedroot = "/"
+
 				if fitouse != nil {
 					suggestedroot = fitouse.PathRoot()
 					if fitouse.IsDir() {
@@ -242,7 +314,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 							prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fs, invert, nil, nil, nil)
 						}
 					}
-				}
+				}*/
 				return prsevalerr
 			}
 
