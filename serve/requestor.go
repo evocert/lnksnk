@@ -78,7 +78,7 @@ func ParseEval(evalcode func(a ...interface{}) (val interface{}, err error), pat
 	if fi != nil && path != "" && path[0:1] != "/" {
 		path += fi.Path()
 	}
-	err = parsing.Parse(true, pathmodified, path, pathext, Out, func() (f io.Reader, ferr error) {
+	err = parsing.Parse(false, pathmodified, path, pathext, Out, func() (f io.Reader, ferr error) {
 		if fi != nil {
 			f, ferr = fi.Open(fnactiveraw, fnmodified)
 			return
