@@ -14,17 +14,14 @@ import (
 
 type CachedScript struct {
 	chdscrptng *CachedScripting
-	//prntchdscrpt *CachedScript
-	path     string
-	modified time.Time
-	psvlck   sync.RWMutex
-	psvbuf   *iorw.Buffer
-	atvlck   sync.RWMutex
-	atvbuf   *iorw.Buffer
-	//chdscrpts    sync.Map
-	chdsublems   *concurrent.Map
-	scrptprgmlck sync.RWMutex
-	scrptprgm    interface{}
+	path       string
+	modified   time.Time
+	psvlck     sync.RWMutex
+	psvbuf     *iorw.Buffer
+	atvlck     sync.RWMutex
+	atvbuf     *iorw.Buffer
+	chdsublems *concurrent.Map
+	scrptprgm  interface{}
 }
 
 func (chdscrpt *CachedScript) IsValidSince(testmod time.Time, fs *fsutils.FSUtils) (isvalid bool) {
@@ -35,8 +32,6 @@ func (chdscrpt *CachedScript) IsValidSince(testmod time.Time, fs *fsutils.FSUtil
 				lspaths := []string{}
 				chdsublems.Range(func(key, value any) bool {
 					return func(lstpath string, lstmod time.Time) bool {
-						//lstmod := value.(time.Time)
-						//lstpath := key.(string)
 						lspaths = append(lspaths, lstpath)
 						lstmods[lstpath] = lstmod
 						return true
@@ -65,21 +60,13 @@ func (chdscrpt *CachedScript) IsValidSince(testmod time.Time, fs *fsutils.FSUtil
 
 func (chdscrpt *CachedScript) SetScriptProgram(scrptpgrm interface{}) {
 	if chdscrpt != nil && scrptpgrm != nil {
-		func() {
-			chdscrpt.scrptprgmlck.Lock()
-			defer chdscrpt.scrptprgmlck.Unlock()
-			chdscrpt.scrptprgm = scrptpgrm
-		}()
+		chdscrpt.scrptprgm = scrptpgrm
 	}
 }
 
 func (chdscrpt *CachedScript) ScriptProgram() (scrptpgrm interface{}) {
 	if chdscrpt != nil {
-		func() {
-			chdscrpt.scrptprgmlck.RLock()
-			defer chdscrpt.scrptprgmlck.RUnlock()
-			scrptpgrm = chdscrpt.scrptprgm
-		}()
+		return chdscrpt.scrptprgm
 	}
 	return
 }
@@ -107,38 +94,35 @@ func (chdscrpt *CachedScript) Dispose() {
 
 func (chdscrpt *CachedScript) WritePsvTo(w io.Writer, path ...string) (n int64, err error) {
 	if chdscrpt != nil {
-		if psvbuf := func() *iorw.Buffer {
-			chdscrpt.psvlck.RLock()
-			defer chdscrpt.psvlck.RUnlock()
-			return chdscrpt.psvbuf
-		}(); psvbuf != nil {
-			psvbuf.WriteTo(w)
+		psvbuf := chdscrpt.psvbuf
+		if psvbuf.Empty() {
+			return
 		}
+		chdscrpt.psvlck.RLock()
+		defer chdscrpt.psvlck.RUnlock()
+		n, err = psvbuf.WriteTo(w)
 	}
 	return
 }
 
 func (chdscrpt *CachedScript) WriteAtvTo(w io.Writer, path ...string) (n int64, err error) {
 	if chdscrpt != nil {
-		if atvbuf := func() *iorw.Buffer {
-			chdscrpt.atvlck.RLock()
-			defer chdscrpt.atvlck.RUnlock()
-			return chdscrpt.atvbuf
-		}(); atvbuf != nil {
-			atvbuf.WriteTo(w)
+		atvbuf := chdscrpt.atvbuf
+		if atvbuf.Empty() {
+			return
 		}
+		chdscrpt.atvlck.RLock()
+		defer chdscrpt.atvlck.RUnlock()
+		n, err = atvbuf.WriteTo(w)
 	}
 	return
 }
 
-func (chdscrpt *CachedScript) EvalAtv(evalatv func(*iorw.BuffReader, func() interface{}, func(interface{})) error) (err error) {
+func (chdscrpt *CachedScript) EvalAtv(evalatv func(a ...interface{}) (interface{}, error)) (result interface{}, err error) {
 	if chdscrpt != nil && evalatv != nil {
-		if atvbuf := func() *iorw.Buffer {
-			chdscrpt.atvlck.RLock()
-			defer chdscrpt.atvlck.RUnlock()
-			return chdscrpt.atvbuf
-		}(); atvbuf != nil && atvbuf.Size() > 0 {
-			err = evalatv(atvbuf.Clone().Reader(true), chdscrpt.ScriptProgram, chdscrpt.SetScriptProgram)
+		if chdprg := chdscrpt.ScriptProgram(); chdprg != nil {
+			result, err = evalatv(chdprg)
+			return
 		}
 	}
 	return
