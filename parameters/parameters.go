@@ -485,17 +485,18 @@ func NewParameters() *Parameters {
 // LoadParametersFromRawURL - populate paramaters just from raw url
 func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 	if params != nil && rawURL != "" {
-		if rawURL != "" && strings.Contains(rawURL, "&") {
+		if rawURL != "" {
 			var phrases = []string{}
-			var rawUrls = strings.Split(rawURL[strings.Index(rawURL, "&")+1:], "&")
+			var rawUrls = strings.Split(rawURL, "&")
 			rawURL = ""
 			for _, rwurl := range rawUrls {
 				if rwurl != "" {
 					if strings.Contains(rwurl, "=") {
 						rawURL += rwurl + "&"
-					} else {
-						phrases = append(phrases, rwurl)
+						continue
 					}
+					phrases = append(phrases, rwurl)
+					continue
 				}
 			}
 			if len(rawURL) > 1 && strings.HasSuffix(rawURL, "&") {
