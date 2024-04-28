@@ -10,14 +10,20 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 )
 
-func prepPathAndRoot(path, pathroot, defaultext string) (string, string, string) {
-	path = strings.Replace(path, "\\", "/", -1)
-	pathroot = strings.Replace(pathroot, "\\", "/", -1)
+func prepPathAndRoot(path, defaultext string) (bool, string, string, string) {
+	var cancache = !strings.Contains(path, ":no-cache/")
+	if !cancache {
+		if nocachsep := strings.Index(path, ":no-cache/"); nocachsep > 0 {
+			path = path[:nocachsep] + path[nocachsep+len(":no-cache/"):]
+		}
+	}
+	path = strings.Replace(strings.Replace(path, "\\", "/", -1), "//", "/", -1)
+	pathroot := ""
 	if defaultext == "" {
 		defaultext = ".html"
 	}
 	if path != "" {
-		if strings.HasPrefix(path, "/") {
+		if path[0:1] == "/" {
 			pathroot = path[:strings.LastIndex(path, "/")+1]
 			path = path[strings.LastIndex(path, "/")+1:]
 		} else {
@@ -28,27 +34,16 @@ func prepPathAndRoot(path, pathroot, defaultext string) (string, string, string)
 		if pathext := filepath.Ext(path); pathext != "" {
 			defaultext = pathext
 		}
-	} else {
-		if pathroot != "" {
-			if !strings.HasSuffix(pathroot, "/") {
-				pathroot += "/"
-			}
-		}
 	}
-	return path, pathroot, defaultext
+	return cancache, path, pathroot, defaultext
 }
 
-func CanParse(canParse bool, pathModified time.Time, path string, pathroot string, defaultext string, out io.Writer, fs *fsutils.FSUtils, invertActive bool, evalcode func(cdebuf *iorw.BuffReader, cdepgrm func() interface{}, setcdeprgm func(interface{})) error) (canprse bool, canprserr error) {
-	var cancache = !strings.Contains(path, ":no-cache/")
-	if !cancache {
-		if nocachsep := strings.Index(path, ":no-cache/"); nocachsep > 0 {
-			path = path[:nocachsep] + path[nocachsep+len(":no-cache/"):]
-		}
-	}
-	path, pathroot, _ = prepPathAndRoot(path, pathroot, defaultext)
-	fullpath := pathroot + path
-
-	if cancache {
+func CanParse(canParse bool, pathModified time.Time, path string, pathroot string, defaultext string, out io.Writer, fs *fsutils.FSUtils, invertActive bool, evalcode func(a ...interface{}) (interface{}, error)) (canprse bool, canprserr error) {
+	if cancache, fullpath := func() (chd bool, flpth string) {
+		chd, path, pathroot, _ = prepPathAndRoot(path, defaultext)
+		flpth = pathroot + path
+		return
+	}(); cancache {
 		if chdscrpt := GLOBALCACHEDSCRIPTING().Script(func() (scrptpath string) {
 			if invertActive {
 				return "/active:" + fullpath
@@ -62,13 +57,13 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 						chdscrpt = nil
 						return
 					} else if evalcode != nil {
-						if canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
+						if _, canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
 							chdscrpt.Dispose()
 						}
 						return
 					}
 				} else if evalcode != nil {
-					if canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
+					if _, canprserr = chdscrpt.EvalAtv(evalcode); canprserr != nil {
 						chdscrpt.Dispose()
 					}
 					return
@@ -83,14 +78,57 @@ func CanParse(canParse bool, pathModified time.Time, path string, pathroot strin
 	return
 }
 
-func Parse(parseOnly bool, canParse bool, pathModified time.Time, path string, pathroot string, defaultext string, out io.Writer, in io.Reader, fs *fsutils.FSUtils, invertActive bool, evalcode func(cdebuf *iorw.BuffReader, cdepgrm func() interface{}, setcdeprgm func(interface{})) error, a ...interface{}) (prserr error) {
-	var cancache = !strings.Contains(path, ":no-cache/")
-	if !cancache {
-		if nocachsep := strings.Index(path, ":no-cache/"); nocachsep > 0 {
-			path = path[:nocachsep] + path[nocachsep+len(":no-cache/"):]
+func Parse(parseOnly bool, pathModified time.Time, path string, defaultext string, out io.Writer, in interface{}, fs *fsutils.FSUtils, invertActive bool, evalcode func(...interface{}) (interface{}, error), a ...interface{}) (prserr error) {
+	pathroot := ""
+	cancache, fullpath := func() (chd bool, flpth string) {
+		chd, path, pathroot, _ = prepPathAndRoot(path, defaultext)
+		flpth = pathroot + path
+		return
+	}()
+	var cachecdefunc func(fullpath string, pathModified time.Time, cachedpaths map[string]time.Time, prsdpsv, prsdatv *iorw.Buffer, preppedatv interface{}) (cshderr error) = nil
+	if !parseOnly && cancache {
+		if chdscrpt := GLOBALCACHEDSCRIPTING().Script(func() (scrptpath string) {
+			if invertActive {
+				return "/active:" + fullpath
+			}
+			return fullpath
+		}()); chdscrpt != nil {
+			if chdscrpt.IsValidSince(pathModified, fs) {
+				if out != nil {
+					if _, prserr = chdscrpt.WritePsvTo(out); prserr != nil {
+						chdscrpt.Dispose()
+						chdscrpt = nil
+						return
+					}
+				}
+				if evalcode != nil {
+					if _, prserr = chdscrpt.EvalAtv(evalcode); prserr != nil {
+						chdscrpt.Dispose()
+					}
+					return
+				}
+			} else {
+				chdscrpt.Dispose()
+				chdscrpt = nil
+			}
+		}
+		cachecdefunc = func(fullpath string, pathModified time.Time, cachedpaths map[string]time.Time, prsdpsv, prsdatv *iorw.Buffer, preppedatv interface{}) (cshderr error) {
+			if fullpath != "" {
+				if crntscrpt := GLOBALCACHEDSCRIPTING().Load(pathModified, prsdpsv, prsdatv, cachedpaths, func() (scrptpath string) {
+					if invertActive {
+						if fullpath[0:1] == "/" {
+							return "/active:" + fullpath[1:]
+						}
+						return "/active:" + fullpath
+					}
+					return fullpath
+				}()); crntscrpt != nil && preppedatv != nil {
+					crntscrpt.SetScriptProgram(preppedatv)
+				}
+			}
+			return
 		}
 	}
-	path, pathroot, defaultext = prepPathAndRoot(path, pathroot, defaultext)
 	var rnrdrs []io.RuneReader = nil
 	if in == nil {
 		if path == "" {
@@ -134,43 +172,32 @@ func Parse(parseOnly bool, canParse bool, pathModified time.Time, path string, p
 		} else {
 			if rnrdr, _ := in.(io.RuneReader); rnrdr != nil {
 				rnrdrs = append(rnrdrs, rnrdr)
-			} else {
-				rnrdrs = append(rnrdrs, iorw.NewEOFCloseSeekReader(in))
+			} else if rdr, _ := in.(io.Reader); rdr != nil {
+				rnrdrs = append(rnrdrs, iorw.NewEOFCloseSeekReader(rdr))
 			}
 		}
 	} else {
+		if funcrdr, _ := in.(func() (io.Reader, error)); funcrdr != nil {
+			rdr, rdrerr := funcrdr()
+			if rdrerr == nil {
+				if rdr != nil {
+					in = rdr
+				}
+			}
+		} else if funcrdr, _ := in.(func() io.Reader); funcrdr != nil {
+			if rdr := funcrdr(); rdr != nil {
+				in = rdr
+			}
+		}
 		if rnrdr, _ := in.(io.RuneReader); rnrdr != nil {
 			rnrdrs = append(rnrdrs, rnrdr)
-		} else {
-			rnrdrs = append(rnrdrs, iorw.NewEOFCloseSeekReader(in))
+		} else if rdr, _ := in.(io.Reader); rdr != nil {
+			rnrdrs = append(rnrdrs, iorw.NewEOFCloseSeekReader(rdr))
 		}
 	}
-	prserr = processParsing(parseOnly, canParse, cancache, pathModified, path, pathroot, defaultext, out, fs, invertActive, evalcode, rnrdrs...)
+
+	prserr = internalProcessParsing(cachecdefunc, pathModified, path, pathroot, defaultext, out, fs, invertActive, evalcode, rnrdrs...)
 	return
-}
-
-func processParsing(
-	parseOnly bool,
-	canparse bool,
-	cancache bool,
-	pathModified time.Time,
-	path, pathroot, pathext string,
-	out io.Writer,
-	fs *fsutils.FSUtils,
-	invertActive bool,
-	evalcode func(*iorw.BuffReader, func() interface{}, func(interface{})) error,
-	rnrdrs ...io.RuneReader) error {
-
-	return internalProcessParsing(parseOnly, canparse, cancache,
-		pathModified,
-		path,
-		pathroot,
-		pathext,
-		out,
-		fs,
-		invertActive,
-		evalcode,
-		rnrdrs...)
 }
 
 var DefaultParseFS *fsutils.FSUtils = nil
@@ -183,12 +210,17 @@ func ParseSourceLoader(path string) (source []byte, err error) {
 		if fcat := DefaultParseFS.CAT(path, func(mod time.Time) {
 			pathmodified = mod
 		}); fcat != nil {
-			err = Parse(false, true, pathmodified, path, "", "", passiveContentBuf, fcat, DefaultParseFS, true, func(atvrdr *iorw.BuffReader, atvpgrm func() interface{}, setatvpgrm func(interface{})) (prscerr error) {
-				if passiveContentBuf.Size() > 0 {
-					activeCodeBuf.Print("print(`", passiveContentBuf, "`);")
-					passiveContentBuf.Clear()
+			err = Parse(false, pathmodified, path, ".js", passiveContentBuf, fcat, DefaultParseFS, true, func(a ...interface{}) (result interface{}, prscerr error) {
+				for _, d := range a {
+					if atvrdr, _ := d.(*iorw.BuffReader); atvrdr != nil {
+						if passiveContentBuf.Size() > 0 {
+							activeCodeBuf.Print("print(`", passiveContentBuf, "`);")
+							passiveContentBuf.Clear()
+						}
+						atvrdr.WriteTo(activeCodeBuf)
+						return
+					}
 				}
-				atvrdr.WriteTo(activeCodeBuf)
 				return
 			})
 			source = append(source, []byte(activeCodeBuf.String())...)
@@ -201,13 +233,3 @@ func ParseSourceLoader(path string) (source []byte, err error) {
 var DefaultMinifyPsv func(psvext string, psvbuf *iorw.Buffer, psvrdr io.Reader) = nil
 
 var DefaultMinifyCde func(cdeext string, cdebuf *iorw.Buffer, cderdr io.Reader) = nil
-
-func init() {
-	/*DefaultParseFS = resources.GLOBALRSNG().FS()
-	DefaultParseFS.MKDIR("/parse")
-	DefaultParseFS.SET("/parse/index.html", `<html><body><main-heading>THE HEADING</main-heading></body></html>`)
-	DefaultParseFS.SET("/parse/main.html", "<@for(var i=0;i<10;i++) {@><main-heading>THE HEADING</main-heading><@}@>")
-	//DefaultParseFS.SET("/parse/main.html", "for(var i=0;i<10;i++) {@><main-heading><@@>`${(i+1)}`<@@></main-heading><@}")
-	DefaultParseFS.SET("/parse/main-heading.html", "<h1>HEADING <:cntnt:/></h1>")
-	ParseSourceLoader("/parse/index.html")*/
-}

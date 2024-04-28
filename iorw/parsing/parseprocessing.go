@@ -5,135 +5,139 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/evocert/lnksnk/fsutils"
 	"github.com/evocert/lnksnk/iorw"
 )
 
-var validLastCdeRuneMap = map[rune]uint8{'=': 1, '/': 1, '[': 1, '(': 1, ',': 1, '+': 1}
-
-type elemfound struct {
-	fs        *fsutils.FSUtils
-	finfo     fsutils.FileInfo
-	preelmbuf *iorw.Buffer
-	elemName  string
-	isdone    bool
-	ctnt      *iorw.Buffer
-	rawCtnt   *iorw.Buffer
-	//tmplts     map[string]*iorw.Buffer
-	//istmplt    bool
-	postelmbuf *iorw.Buffer
-	rdrne      func() (rune, int, error)
-	//onclose    func(error)
+func validLastCdeRune(cr rune) bool {
+	return cr == '=' || cr == '(' || cr == '[' || cr == ',' || cr == '+' || cr == '/'
 }
 
-func (elmfnd *elemfound) PreElmBuffer() (buf *iorw.Buffer) {
-	if elmfnd != nil {
-		if buf = elmfnd.preelmbuf; buf == nil {
-			buf = iorw.NewBuffer()
-			elmfnd.preelmbuf = buf
+type parsefunc func(r rune, preLen, postLen int, prelbl, postlbl []rune, lbli []int) (prserr error)
+
+type contentelem struct {
+	modified time.Time
+	fi       fsutils.FileInfo
+	elemname string
+	elemroot string
+	elemext  string
+	ctntbuf  *iorw.Buffer
+	prebuf   *iorw.Buffer
+	postbuf  *iorw.Buffer
+	runerdr  io.RuneReader
+	rawBuf   *iorw.Buffer
+	eofevent func(*contentelem, error)
+}
+
+func (ctntelm *contentelem) writeRune(r rune) {
+	if ctntelm != nil {
+		if ctntelm.rawBuf != nil {
+			ctntelm.rawBuf.WriteRune(r)
+			return
+		}
+		ctntelm.content().WriteRune(r)
+	}
+}
+
+func (ctntelm *contentelem) content() (ctntbuf *iorw.Buffer) {
+	if ctntelm != nil {
+		if ctntbuf = ctntelm.ctntbuf; ctntbuf == nil {
+			ctntbuf = iorw.NewBuffer()
+			ctntelm.ctntbuf = ctntbuf
 		}
 	}
 	return
 }
 
-func (elmfnd *elemfound) PostElmBuffer() (buf *iorw.Buffer) {
-	if elmfnd != nil {
-		if buf = elmfnd.postelmbuf; buf == nil {
-			buf = iorw.NewBuffer()
-			elmfnd.postelmbuf = buf
+// ReadRune implements io.RuneReader.
+func (ctntelm *contentelem) ReadRune() (r rune, size int, err error) {
+	if ctntelm != nil {
+		if ctntelm.runerdr != nil {
+			if r, size, err = ctntelm.runerdr.ReadRune(); err != nil {
+				if eofevent := ctntelm.eofevent; eofevent != nil {
+					ctntelm.eofevent = nil
+					if err == io.EOF {
+						eofevent(ctntelm, nil)
+						return
+					}
+					eofevent(ctntelm, err)
+				}
+			}
+			return
 		}
-	}
-	return
-}
-
-func (elmfnd *elemfound) Modified() (mod time.Time) {
-	if elmfnd != nil && elmfnd.finfo != nil {
-		mod = elmfnd.finfo.ModTime()
-	}
-	return
-}
-
-func (elmfnd *elemfound) FullPath() (path string) {
-	if elmfnd != nil && elmfnd.finfo != nil {
-		path = elmfnd.finfo.Path()
-	}
-	return
-}
-
-func (elmfnd *elemfound) RawContentReader(onclose func(*elemfound, error) error) (rplsrnrdr *iorw.ReplaceRuneReader) {
-	if elmfnd != nil && elmfnd.rawCtnt != nil && elmfnd.rawCtnt.Size() > 0 {
-		rplsrnrdr = iorw.NewReplaceRuneReader(elmfnd.rawCtnt.Clone(true).Reader(true))
-		if onclose != nil {
-			rplsrnrdr.OnClose = func(rrr *iorw.ReplaceRuneReader, rrrerr error) (err error) {
-				err = onclose(elmfnd, rrrerr)
-				return
+		prepContentElemReader(ctntelm)
+		if ctntelm.runerdr != nil {
+			if ctntelm.rawBuf == nil {
+				ctntelm.rawBuf = iorw.NewBuffer()
+			}
+			if r, size, err = ctntelm.runerdr.ReadRune(); err != nil {
+				if eofevent := ctntelm.eofevent; eofevent != nil {
+					ctntelm.eofevent = nil
+					if err == io.EOF {
+						eofevent(ctntelm, nil)
+						return
+					}
+					eofevent(ctntelm, err)
+				}
 			}
 		}
 	}
+	if size == 0 && err == nil {
+		err = io.EOF
+	}
 	return
 }
 
-func (elmfnd *elemfound) Close() (err error) {
-	if elmfnd != nil {
-		if elmfnd.finfo != nil {
-			elmfnd.finfo = nil
+// Close implements io.Closer
+func (ctntelm *contentelem) Close() (err error) {
+	if ctntelm != nil {
+		if ctntelm.postbuf != nil {
+			ctntelm.postbuf.Close()
+			ctntelm.postbuf = nil
 		}
-		if elmfnd.fs != nil {
-			elmfnd.fs = nil
+
+		if ctntelm.prebuf != nil {
+			ctntelm.prebuf.Close()
+			ctntelm.prebuf = nil
 		}
-		if elmfnd.ctnt != nil {
-			elmfnd.ctnt.Close()
-			elmfnd.ctnt = nil
+
+		if ctntelm.ctntbuf != nil {
+			ctntelm.ctntbuf.Close()
+			ctntelm.ctntbuf = nil
 		}
-		if elmfnd.rawCtnt != nil {
-			elmfnd.rawCtnt.Close()
-			elmfnd.rawCtnt = nil
+
+		if ctntelm.runerdr != nil {
+			ctntelm.runerdr = nil
 		}
-		if elmfnd.preelmbuf != nil {
-			elmfnd.preelmbuf.Close()
-			elmfnd.preelmbuf = nil
+
+		if ctntelm.fi != nil {
+			ctntelm.fi = nil
 		}
-		if elmfnd.postelmbuf != nil {
-			elmfnd.postelmbuf.Close()
-			elmfnd.postelmbuf = nil
+
+		if ctntelm.rawBuf != nil {
+			ctntelm.rawBuf.Close()
+		}
+
+		if ctntelm.eofevent != nil {
+			ctntelm.eofevent = nil
 		}
 	}
 	return
 }
 
-func (elmfnd *elemfound) Content() (ctnt *iorw.Buffer) {
-	if elmfnd != nil {
-		if ctnt = elmfnd.ctnt; ctnt == nil {
-			ctnt = iorw.NewBuffer()
-			elmfnd.ctnt = ctnt
+func prepContentElemReader(ctntelm *contentelem) {
+	if ctntelm != nil && ctntelm.runerdr == nil && ctntelm.fi != nil {
+		ctntbuf := ctntelm.ctntbuf
+		ctntelm.ctntbuf = nil
+		var rdr io.RuneReader = nil
+		if r, rerr := ctntelm.fi.Open(); rerr == nil {
+			if rdr, _ = (r).(io.RuneReader); rdr == nil {
+				rdr = iorw.NewEOFCloseSeekReader(r)
+			}
 		}
-	}
-	return
-}
 
-func (elmfnd *elemfound) RawContent() (ctnt *iorw.Buffer) {
-	if elmfnd != nil {
-		if ctnt = elmfnd.rawCtnt; ctnt == nil {
-			ctnt = iorw.NewBuffer()
-			elmfnd.rawCtnt = ctnt
-		}
-	}
-	return
-}
-
-func (elmfnd *elemfound) ReadRune() (r rune, size int, err error) {
-	if elmfnd != nil && elmfnd.rdrne != nil {
-		r, size, err = elmfnd.rdrne()
-	}
-	return
-}
-
-func (elmfnd *elemfound) NextRuneReader(preAppendElem bool, postAppendElem bool, onclose func(*elemfound, error) error, ctntbuf *iorw.Buffer) (rdr io.RuneReader) {
-	if elmfnd != nil && elmfnd.fs != nil && elmfnd.finfo != nil {
-		rdr, _ = elmfnd.fs.CAT(elmfnd.finfo.Path()).(io.RuneReader)
-		path := elmfnd.finfo.Path()
+		path := ctntelm.fi.Path()
 		pathroot := path
 		pthexti, pathpthi := strings.LastIndex(pathroot, "."), strings.LastIndex(pathroot, "/")
 		if pathpthi > -1 {
@@ -145,35 +149,25 @@ func (elmfnd *elemfound) NextRuneReader(preAppendElem bool, postAppendElem bool,
 			pathroot = "/"
 		}
 		path = path[len(pathroot):]
-		if strings.HasSuffix(elmfnd.elemName, ":") {
+		if strings.HasSuffix(ctntelm.elemname, ":") {
 			path = ""
 		}
-		if prebuf, postbuf := elmfnd.preelmbuf, elmfnd.postelmbuf; prebuf != nil || postbuf != nil {
-			if ctntbuf == nil {
-				ctntbuf = iorw.NewBuffer()
-
-				if prebuf != nil && prebuf.Size() > 0 {
-					ctntbuf.Print("<:_:pre:>" + prebuf.String() + "</:_:pre:>")
-					prebuf.Clear()
-				}
-				if postbuf != nil && postbuf.Size() > 0 {
-					ctntbuf.Print("<:_:post:>" + postbuf.String() + "</:_:post:>")
-					prebuf.Clear()
-				}
-			} else {
-				if !ctntbuf.Contains("<:_:pre:>") && prebuf != nil && prebuf.Size() > 0 {
-					ctntbuf.Print("<:_:pre:>" + prebuf.String() + "</:_:pre:>")
-					prebuf.Clear()
-				}
-				if !ctntbuf.Contains("<:_:post:>") && postbuf != nil && postbuf.Size() > 0 {
-					ctntbuf.Print("<:_:post:>" + postbuf.String() + "</:_:post:>")
-					prebuf.Clear()
-				}
-			}
+		tmplts := []interface{}{}
+		prebuf := ctntelm.prebuf
+		if !prebuf.Empty() {
+			tmplts = append(tmplts, "<:_:pre:/>", prebuf.String())
 		}
-
-		if ctntbuf != nil {
-			tmplts := []interface{}{}
+		if prebuf.Empty() {
+			tmplts = append(tmplts, "<:_:pre:/>", "")
+		}
+		postbuf := ctntelm.postbuf
+		if !postbuf.Empty() {
+			tmplts = append(tmplts, "<:_:post:/>", postbuf.String())
+		}
+		if postbuf.Empty() {
+			tmplts = append(tmplts, "<:_:post:/>", "")
+		}
+		if !ctntbuf.Empty() {
 			if ctntbuf.Contains("<:_:") {
 				rdr := ctntbuf.Clone(true).Reader(true)
 				tmpltcntrdr := NewUntilRuneReader(rdr, "<:_:")
@@ -181,14 +175,14 @@ func (elmfnd *elemfound) NextRuneReader(preAppendElem bool, postAppendElem bool,
 				for !tmpltcntrdr.Done {
 					tmpltcntrdr.WriteTo(tmpbuf)
 					if tmpltcntrdr.FoundUntil {
-						if tmpbuf.Size() > 0 {
+						if !tmpbuf.Empty() {
 							tmpbuf.WriteTo(ctntbuf)
 							tmpbuf.Clear()
 						}
 						tmpltcntrdr.NextUntil(":>")
 						tmpltcntrdr.WriteTo(tmpbuf)
 						if tmpltcntrdr.FoundUntil {
-							if tmpbuf.Size() > 0 {
+							if !tmpbuf.Empty() {
 								tmpltnme := tmpbuf.String()
 								tmpbuf.Clear()
 								tmpltcntrdr.NextUntil("</:_:" + tmpltnme + ":>")
@@ -204,153 +198,453 @@ func (elmfnd *elemfound) NextRuneReader(preAppendElem bool, postAppendElem bool,
 						}
 					}
 				}
-				if tmpbuf.Size() > 0 {
+				if !tmpbuf.Empty() {
 					tmpbuf.WriteTo(ctntbuf)
 					tmpbuf.Clear()
 				}
 			}
-			rplcrnrdr := iorw.NewReplaceRuneReader(rdr, append([]interface{}{"<:cntnt:/>", ctntbuf.String(), "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
-				if path == "" {
-					if strings.HasSuffix(pathroot, "/") {
-						if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
-							elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-						} else {
-							elmroot = ""
-						}
-					} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-						elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-					} else {
-						elmroot = ""
-					}
-				} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-					elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-				} else {
-					elmroot = ""
-				}
-				return
-			}()}, tmplts...)...)
-			if preAppendElem {
-				rplcrnrdr.PreAppend(strings.NewReader("<" + elmfnd.elemName + ">"))
-			}
-			if postAppendElem {
-				rplcrnrdr.PostAppend(strings.NewReader("</" + elmfnd.elemName + ">"))
-			}
-			if onclose != nil {
-				rplcrnrdr.OnClose = func(rrr *iorw.ReplaceRuneReader, rrrerr error) (err error) {
-					err = onclose(elmfnd, rrrerr)
-					return
-				}
-			}
-			elmfnd.rdrne = rplcrnrdr.ReadRune
-		} else {
-			rplcrnrdr := iorw.NewReplaceRuneReader(rdr, "<:cntnt:/>", "", "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
-				if path == "" {
-					if strings.HasSuffix(pathroot, "/") {
-						if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
-							elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-						} else {
-							elmroot = ""
-						}
-					} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-						elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-					} else {
-						elmroot = ""
-					}
-				} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-					elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-				} else {
-					elmroot = ""
-				}
-				return
-			}())
-			if preAppendElem {
-				rplcrnrdr.PreAppend(strings.NewReader("<" + elmfnd.elemName + ">"))
-			}
-			if postAppendElem {
-				rplcrnrdr.PostAppend(strings.NewReader("</" + elmfnd.elemName + ">"))
-			}
-			if onclose != nil {
-				rplcrnrdr.OnClose = func(rrr *iorw.ReplaceRuneReader, rrrerr error) (err error) {
-					err = onclose(elmfnd, rrrerr)
-					return
-				}
-			}
-			elmfnd.rdrne = rplcrnrdr.ReadRune
 		}
-		return elmfnd
+		tmplts = append(tmplts, "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
+			if path == "" {
+				if strings.HasSuffix(pathroot, "/") {
+					if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
+						elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+					} else {
+						elmroot = ""
+					}
+				} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
+					elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+				} else {
+					elmroot = ""
+				}
+			} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
+				elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+			} else {
+				elmroot = ""
+			}
+			return
+		}(), "<:cntnt:/>", ctntbuf.String())
+
+		ctntelm.runerdr = iorw.NewReplaceRuneReader(rdr, tmplts...)
+		/*bfr := iorw.NewBuffer()
+		fmt.Println()
+		fmt.Println(ctntelm.elemname)
+		bfr.Print(ctntelm.runerdr)
+		fmt.Println(bfr.String())
+		fmt.Println()
+		ctntelm.runerdr = bfr.Reader(true)*/
 	}
-	return
 }
 
-func nextElemFound(elemName string, finfo fsutils.FileInfo, fs *fsutils.FSUtils) (nxtelmfnd *elemfound) {
-	nxtelmfnd = &elemfound{elemName: elemName, finfo: finfo, fs: fs}
-	return
-}
+type ctntelemlevel int
 
-func (elmfnd *elemfound) Clone() (nxtelmfnd *elemfound) {
-	if elmfnd != nil {
-		nxtelmfnd = &elemfound{elemName: elmfnd.elemName, finfo: elmfnd.finfo, fs: elmfnd.fs}
+func (ctntelmlvl ctntelemlevel) String() string {
+	if ctntelmlvl == ctntElemStart {
+		return "start"
 	}
-	return
-}
-
-func (elmfnd *elemfound) Path() string {
-	return elmfnd.finfo.Path()
-}
-
-func (elmfnd *elemfound) Ext() (ext string) {
-	ext = filepath.Ext(elmfnd.Path())
-	return
-}
-
-func (elmfnd *elemfound) PathRoot() (pthroot string) {
-	if pthroot = elmfnd.Path(); strings.Contains(pthroot, "/") {
-		pthroot = pthroot[:strings.LastIndex(pthroot, "/")+1]
-	} else {
-		pthroot = "/"
+	if ctntelmlvl == ctntElemSingle {
+		return "single"
 	}
-	return
+	if ctntelmlvl == ctntElemEnd {
+		return "end"
+	}
+	return "unknown"
 }
+
+const (
+	ctntElemUnknown ctntelemlevel = iota
+	ctntElemStart
+	ctntElemSingle
+	ctntElemEnd
+)
 
 func internalProcessParsing(
-	parseOnly bool,
-	canParse bool,
-	cancache bool,
+	capturecache func(fullpath string, pathModified time.Time, cachedpaths map[string]time.Time, prsdpsv, prsdatv *iorw.Buffer, preppedatv interface{}) (cshderr error),
 	pathModified time.Time,
 	path, pathroot, pathext string,
 	out io.Writer,
 	fs *fsutils.FSUtils,
 	invertActive bool,
-	evalcode func(*iorw.BuffReader, func() interface{}, func(interface{})) error,
+	evalcode func(...interface{}) (interface{}, error),
 	rnrdrs ...io.RuneReader) (prsngerr error) {
-
 	fullpath := pathroot + path
 
-	/*if cancache {
-		if chdscrpt := GLOBALCACHEDSCRIPTING().Script(func() (scrptpath string) {
-			if invertActive {
-				return "/active:" + fullpath
+	validelempaths := map[string]time.Time{}
+
+	var chdpsvbuf *iorw.Buffer = nil
+
+	cdelblrns := [][]rune{[]rune("<@"), []rune("@>")}
+	cdepreL := len(cdelblrns[0])
+	cdepostL := len(cdelblrns[1])
+	cdelbli := []int{0, 0}
+	cdetxtr := rune(0)
+	cdeprvr := rune(0)
+	cdelstr := rune(0)
+	if invertActive {
+		cdelbli[0] = cdepreL
+	}
+	cdebuf := iorw.NewBuffer()
+	defer cdebuf.Close()
+
+	cdeatvbuf := iorw.NewBuffer()
+	defer cdeatvbuf.Close()
+
+	cmdslcted := ""
+	var cdecmdlbl []rune = nil
+	cdecmdi := 0
+	var cdecrntbuf *iorw.Buffer = cdeatvbuf
+
+	cdeimprtbuf := iorw.NewBuffer()
+	defer cdeimprtbuf.Close()
+
+	cdeflushatv := func() {
+		if !cdeatvbuf.Empty() {
+			cdeatvbuf.WriteTo(cdebuf)
+			cdeatvbuf.Clear()
+		}
+	}
+
+	var crntnextelm *contentelem = nil
+
+	cdeatvparse := func(notxt bool, atvr rune) {
+		if len(cdecmdlbl) == 0 {
+			if notxt {
+				cdetxtr = 0
+				cdelstr = 0
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				return
 			}
-			return fullpath
-		}()); chdscrpt != nil {
-			if !chdscrpt.IsValidSince(pathModified, fs) {
-				chdscrpt.Dispose()
-				chdscrpt = nil
-			} else if chdscrpt != nil {
-				if out != nil {
-					_, prsngerr = chdscrpt.WritePsvTo(out)
+			if cdeprvr != '\\' && iorw.IsTxtPar(atvr) {
+				cdetxtr = atvr
+				cdelstr = 0
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				return
+			}
+			if !iorw.IsSpace(atvr) {
+				cdelstr = func() rune {
+					if validLastCdeRune(atvr) {
+						return atvr
+					}
+					return 0
+				}()
+			}
+
+			if iorw.IsSpace(atvr) {
+				if cmdslcted != "" {
+					cmdslcted = ""
 				}
-				if prsngerr == nil && evalcode != nil {
-					if prsngerr = chdscrpt.EvalAtv(evalcode); prsngerr != nil {
-						chdscrpt.Dispose()
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				return
+			}
+			cmdslcted += string(atvr)
+			if cmdslcted == "//" {
+				cdecmdlbl = []rune("\n")
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				cmdslcted = ""
+				return
+			}
+			if cmdslcted == "/*" {
+				cdecmdlbl = []rune("\n")
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				cmdslcted = ""
+				return
+			}
+			if cmdslcted == "import"[:len(cmdslcted)] {
+				cdecrntbuf = cdeimprtbuf
+				if cmdslcted == "import" {
+					cdecmdlbl = []rune(";")
+					cmdslcted = ""
+					cdeprvr = atvr
+					cdeimprtbuf.Clear()
+					return
+				}
+				cdeprvr = atvr
+				cdecrntbuf.WriteRune(atvr)
+				return
+			}
+			if !cdeimprtbuf.Empty() {
+				cmdslcted = ""
+				cdecrntbuf = cdeatvbuf
+				cdeimprtbuf.WriteTo(cdecrntbuf)
+				cdeimprtbuf.Clear()
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				return
+			}
+			if len(cmdslcted) > 2 {
+				cmdslcted = ""
+			}
+			cdecrntbuf.WriteRune(atvr)
+			cdeprvr = atvr
+			return
+		}
+		if cdecmdlbl[cdecmdi] == atvr {
+			cdecmdi++
+			if cdecmdi == len(cdecmdlbl) {
+				cmdslcted = ""
+				cdecmdi = 0
+				if string(cdecmdlbl) == ";" {
+					cdecmdlbl = nil
+					if !cdeimprtbuf.Empty() {
+						func() {
+							cdecrntbuf = cdeatvbuf
+							defer cdeimprtbuf.Clear()
+							if tmpimports := cdeimprtbuf.String(); tmpimports != "" {
+								cdeimprtbuf.Clear()
+								tmpimports = strings.TrimSpace(tmpimports)
+								imprtcde := ""
+								if frmindex := strings.Index(tmpimports, "from"); frmindex > 0 {
+									tmpimports1 := strings.TrimSpace(tmpimports[:frmindex])
+									tmpimports2 := strings.TrimSpace(tmpimports[frmindex+len("from"):])
+
+									if tmpimports1 != "" && tmpimports2 != "" {
+										imprtcde += `var _default_mod=require(` + tmpimports2 + `);`
+										tstxtr := rune(0)
+										tstbrc := 0
+										crntelems := []string{}
+										crntmod := []string{}
+										tmprns := []rune{}
+										cdemode := "_default_mod"
+										capturetmprns := func() {
+											if len(tmprns) > 0 {
+												if crnttmp := string(tmprns); crnttmp != "" {
+													if tstbrc == 1 {
+														crntelems = append(crntelems, crnttmp)
+													} else if tstbrc == 0 {
+														crntmod = append(crntmod, crnttmp)
+													}
+												}
+											}
+											tmprns = nil
+										}
+										propImportCode := func() {
+											if tstbrc == 1 {
+												if crntelml := len(crntelems); crntelml > 0 {
+													if crntelml == 3 && crntelems[1] == "as" {
+														imprtcde += "const " + crntelems[2] + "=" + cdemode + `["` + crntelems[0] + `"];`
+													} else if crntelml == 1 {
+														imprtcde += "const " + crntelems[0] + "=" + cdemode + `["` + crntelems[0] + `"];`
+													}
+													crntelems = nil
+												}
+											} else {
+												if crntmdl := len(crntmod); crntmdl > 0 {
+													if crntmdl == 3 && crntmod[1] == "as" {
+														imprtcde += "const " + crntmod[2] + "=" + cdemode + ";"
+													} else if crntmdl == 1 {
+														imprtcde += "const " + crntmod[1] + "=" + cdemode + ";"
+													}
+													crntmod = nil
+												}
+											}
+										}
+										for _, tsr := range tmpimports1 {
+											if tstxtr == 0 {
+												if tsr == '"' {
+													tstxtr = tsr
+													continue
+												}
+												if tsr == '{' {
+													tstbrc = 1
+												} else if tsr == '}' {
+													capturetmprns()
+													propImportCode()
+													tstbrc = 0
+												} else if tsr == ',' {
+													capturetmprns()
+													if tstbrc == 0 {
+														propImportCode()
+													}
+												} else {
+													if !iorw.IsSpace(tsr) {
+														tmprns = append(tmprns, tsr)
+													} else {
+														capturetmprns()
+													}
+												}
+											} else {
+												if tstxtr == tsr {
+													tstxtr = 0
+													continue
+												}
+												tmprns = append(tmprns, tsr)
+											}
+										}
+										capturetmprns()
+										propImportCode()
+									}
+								} else {
+									imprtcde += `require(` + tmpimports + `);`
+								}
+								cdecrntbuf.Print(imprtcde)
+							}
+						}()
+						cdeprvr = atvr
+						return
 					}
 				}
+				cdecmdlbl = nil
+				cdecrntbuf.WriteRune(atvr)
+				cdeprvr = atvr
+				return
+			}
+			cdecrntbuf.WriteRune(atvr)
+			cdeprvr = atvr
+		}
+		if cdecmdi > 0 {
+			for _, cdavr := range cdecmdlbl[:cdecmdi] {
+				cdecrntbuf.WriteRune(cdavr)
+				cdeprvr = cdavr
+			}
+			cdecmdi = 0
+		}
+		cdecrntbuf.WriteRune(atvr)
+		cdeprvr = atvr
+	}
+
+	cdepsvbuf := iorw.NewBuffer()
+	defer cdepsvbuf.Close()
+
+	cdeflushpsv := func() (flsherr error) {
+		if cdepsvs := cdepsvbuf.Size(); cdepsvs > 0 {
+			hstmpltfx := cdepsvbuf.HasPrefix("`") && cdepsvbuf.HasSuffix("`") && cdepsvs >= 2
+			if !hstmpltfx && cdebuf.Size() == 0 {
+				if out != nil {
+					_, flsherr = cdepsvbuf.WriteTo(out)
+				}
+				if capturecache != nil && flsherr == nil {
+					if chdpsvbuf == nil {
+						chdpsvbuf = iorw.NewBuffer()
+					}
+					cdepsvbuf.WriteTo(chdpsvbuf)
+				}
+				cdepsvbuf.Clear()
+				return
+			}
+			cntsinlinebraseortmpl := !hstmpltfx && cdepsvbuf.Contains("${") || cdepsvbuf.Contains("`")
+			var psvrdr io.RuneReader = func() io.RuneReader {
+				if hstmpltfx {
+					return cdepsvbuf.Clone(true).Reader(true)
+				}
+				if cntsinlinebraseortmpl {
+					return iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), "`", "\\`", "${", "\\${")
+				}
+				return iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`)
+			}()
+
+			if cdelstr > 0 {
+				cdelstr = 0
+				if hstmpltfx {
+					cdebuf.Print(psvrdr)
+					return
+				}
+				if cntsinlinebraseortmpl {
+					cdebuf.Print("`", psvrdr, "`")
+					return
+				}
+				cdebuf.Print("`", psvrdr, "`")
+				return
+			}
+			if hstmpltfx {
+				cdebuf.Print("print(", psvrdr, ");")
+				return
+			}
+			if cntsinlinebraseortmpl {
+				cdebuf.Print("print(`", psvrdr, "`);")
+				return
+			}
+			cdebuf.Print("print(`", psvrdr, "`);")
+		}
+		return
+	}
+
+	cdepsvparse := func(ptvr rune) {
+		cdeflushatv()
+		cdepsvbuf.WriteRune(ptvr)
+	}
+
+	var cdeparser parsefunc = nil
+	cdeparser = func(r rune, preLen, postLen int, prelbl, postlbl []rune, lbli []int) (prserr error) {
+		if cdetxtr == 0 {
+			if lbli[1] == 0 && lbli[0] < preLen {
+				if lbli[0] > 0 && cdeprvr == prelbl[lbli[0]-1] && r != prelbl[lbli[0]] {
+					for _, cder := range prelbl[:lbli[0]] {
+						cdepsvparse(cder)
+						cdeprvr = cder
+					}
+					lbli[0] = 0
+					cdeprvr = 0
+					return cdeparser(r, preLen, postLen, prelbl, postlbl, lbli)
+				}
+				if prelbl[lbli[0]] == r {
+					lbli[0]++
+					if lbli[0] == preLen {
+
+						cdeprvr = 0
+						cdeflushpsv()
+						return
+					}
+					cdeprvr = r
+					return
+				}
+				if lbli[0] > 0 {
+					for _, cder := range prelbl[:lbli[0]] {
+						cdepsvparse(cder)
+						cdeprvr = cder
+					}
+					lbli[0] = 0
+					cdeprvr = 0
+				}
+				cdepsvparse(r)
+				cdeprvr = r
+				return
+			}
+			if lbli[0] == preLen && lbli[1] < postLen {
+				if postlbl[lbli[1]] == r {
+					lbli[1]++
+					if lbli[1] == postLen {
+
+						lbli[0] = 0
+						lbli[1] = 0
+						cdeprvr = 0
+						cdeflushatv()
+						return
+					}
+					return
+				}
+				if lbli[1] > 0 {
+					for _, atvr := range prelbl[:lbli[1]] {
+						cdeatvparse(false, atvr)
+					}
+					lbli[1] = 0
+				}
+				cdeatvparse(false, r)
 				return
 			}
 		}
-	}*/
+		if len(cdecmdlbl) == 0 {
+			if cdeprvr != '\\' && cdetxtr == r {
+				cdeatvparse(cdetxtr == r, r)
+				return
+			}
+			cdeatvparse(false, r)
+			return
+		}
+		if lbli[0] == preLen {
+			cdeatvparse(false, r)
+			return
+		}
+		if lbli[1] == postLen {
+			cdepsvparse(r)
+		}
+		return
+	}
 
-	var chdpsvbuf *iorw.Buffer = nil
 	ctntrdr := iorw.NewRuneReaderSlice(iorw.NewReplaceRuneReader(iorw.NewRuneReaderSlice(rnrdrs...), "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
 		if path == "" {
 			if strings.HasSuffix(pathroot, "/") {
@@ -371,909 +665,486 @@ func internalProcessParsing(
 		}
 		return
 	}()))
+	defer ctntrdr.Close()
+	dneprsng := false
+	ctntlblrns := [][]rune{[]rune("<"), []rune(">")}
+	ctntpreL := len(ctntlblrns[0])
+	ctntpostL := len(ctntlblrns[1])
+	ctntlbli := []int{0, 0}
+	ctntprvr := rune(0)
+	ctnttxtr := rune(0)
+	ctntelmname := []rune{}
+	ctntelmlvl := ctntElemUnknown
+	ctntfndname := false
 
-	cderdr := iorw.NewRuneReaderSlice()
+	ctntrmngbuf := iorw.NewBuffer()
+	defer ctntrmngbuf.Close()
 
-	prcsection := 0
-
-	cnttxtr := rune(0)
-	cntprvr := rune(0)
-
-	cntntpsvlbl := []rune("<")
-	cntntatvlbl := []rune(">")
-	cntntlbli := []int{0, 0}
-
-	cntntprserr := error(nil)
-
-	var cntelmsfound = map[string]*elemfound{}
-	var cntelmsfoundlevel = map[int]*elemfound{}
-	var cntelmsfndL = 0
-	cntntprevr := func() rune {
-		return cntprvr
-	}
-
-	cntntsetprevr := func(r rune) {
-		cntprvr = r
-	}
-
-	cntntcancheckpsv := func() bool {
-		return true
-	}
-
-	cntntcancheckatv := func() bool {
-		return cnttxtr == 0
-	}
-
-	cntpsvbuf := iorw.NewBuffer()
-	defer cntpsvbuf.Close()
-	cntntprcspsvrunes := func(rns ...rune) (prserr error) {
-		cntpsvbuf.WriteRunes(rns...)
-		return
-	}
-
-	cntntflushpsv := func() (prserr error) {
-		if cntpsvbuf.Size() > 0 {
-			if cntelm := cntelmsfoundlevel[len(cntelmsfoundlevel)-1]; cntelm != nil {
-				if cntelm.isdone {
-					cntpsvbuf.WriteTo(cntelm.RawContent())
-				} else {
-					cntpsvbuf.WriteTo(cntelm.Content())
+	flushctntrmng := func() (prserr error) {
+		if !ctntrmngbuf.Empty() {
+			if crntnextelm != nil {
+				if crntnextelm.rawBuf == nil {
+					ctntrmngbuf.WriteTo(crntnextelm.content())
+					ctntrmngbuf.Clear()
+					return
 				}
-				cntpsvbuf.Clear()
-			} else {
-				cderdr.PreAppend(cntpsvbuf.Clone(true).Reader(true))
-				prcsection = 1
+				ctntrmngbuf.WriteTo(crntnextelm.rawBuf)
+				ctntrmngbuf.Clear()
+				return
+			}
+
+			for _, cr := range func() (rns []rune) {
+				rns = []rune(ctntrmngbuf.String())
+				ctntrmngbuf.Clear()
+				return
+			}() {
+				if prserr = cdeparser(cr, cdepreL, cdepostL, cdelblrns[0], cdelblrns[1], cdelbli); prsngerr != nil {
+					return
+				}
 			}
 		}
 		return
 	}
 
-	cntatvbuf := iorw.NewBuffer()
-	defer cntatvbuf.Close()
-	isEndElem, isSingleElem, isStartElem := false, false, false
-	crntElemName := ""
+	var ctntprspsv func(rune) error = nil
 
-	checkfoundElm := false
+	defer func() {
+		if crntnextelm != nil {
+			crntnextelm.Close()
+			crntnextelm = nil
+		}
+	}()
 
-	var resetCntntCheckElem = func(incldeend bool, resetonly bool, r ...rune) {
-		cntprvr = rune(0)
-		cnttxtr = rune(0)
-		if !resetonly {
-			cntpsvbuf.WriteRunes(cntntpsvlbl...)
+	ctntprspsv = func(r rune) (prserr error) {
+		if crntnextelm != nil {
+			crntnextelm.writeRune(r)
+			return
 		}
-		if checkfoundElm {
-			checkfoundElm = false
-			if crntElemName != "" {
-				if !resetonly {
-					cntpsvbuf.Print(crntElemName)
-				}
-				crntElemName = ""
-			}
-			if !isSingleElem {
-				if !resetonly {
-					cntatvbuf.WriteTo(cntpsvbuf)
-				}
-				cntatvbuf.Clear()
-			} else {
-				if !resetonly {
-					cntatvbuf.WriteTo(cntpsvbuf)
-					cntatvbuf.Clear()
-					if !cntpsvbuf.HasSuffix("/") {
-						cntpsvbuf.Print("/")
-					}
-				}
-				isSingleElem = false
-			}
-			if !resetonly {
-				cntpsvbuf.WriteRunes(r...)
-			}
-		} else {
-			if isEndElem {
-				if !resetonly {
-					cntpsvbuf.WriteRune('/')
-				}
-				isEndElem = false
-			}
-			if crntElemName != "" {
-				if !resetonly {
-					cntpsvbuf.Print(crntElemName)
-				}
-				crntElemName = ""
-			}
-			if !resetonly {
-				cntpsvbuf.WriteRunes(r...)
-			}
-		}
-		if isStartElem {
-			isStartElem = false
-		}
-		if incldeend {
-			if !resetonly {
-				cntpsvbuf.WriteRunes(cntntatvlbl...)
-			}
-		}
+		prserr = cdeparser(r, cdepreL, cdepostL, cdelblrns[0], cdelblrns[1], cdelbli)
+		return
 	}
 
-	var invalidElems = map[string]bool{}
+	ctntprsvatvbuf := iorw.NewBuffer()
 
-	var checkifCntntElem = func(r ...rune) (failed bool, chkerr error) {
-		var lstcn = -1
-		for cn, cr := range r {
-			if checkfoundElm {
-				if cnttxtr == 0 {
-					if iorw.IsTxtPar(cr) {
-						cnttxtr = cr
-						cntatvbuf.WriteRune(cr)
-					} else {
-						if !isSingleElem {
-							if cr == '/' {
-								isSingleElem = true
-							} else {
-								cntatvbuf.WriteRune(cr)
+	ctntflushInvalid := func(canprse bool, prelbl, postlbl []rune, lbli []int, r ...rune) (flsrmng []rune) {
+		if ctntelmlvl.String() == "start" {
+			ctntelmlvl = ctntElemUnknown
+		}
+		if canprse {
+			if ctntfndname {
+				ctntfndname = false
+				if lbli[0] > 0 {
+					flsrmng = append(flsrmng, prelbl[:lbli[0]]...)
+					lbli[0] = 0
+				}
+				if ctntelmlvl.String() == "end" {
+					ctntelmlvl = ctntElemUnknown
+					flsrmng = append(flsrmng, '/')
+				}
+				if len(ctntelmname) > 0 {
+					flsrmng = append(flsrmng, ctntelmname...)
+					ctntelmname = nil
+				}
+				if !ctntprsvatvbuf.Empty() {
+					rdr := ctntprsvatvbuf.Clone(true).Reader(true)
+					for {
+						if rr, rrs, rrerr := rdr.ReadRune(); rrs > 0 && (rrerr == nil || rrerr == io.EOF) {
+							flsrmng = append(flsrmng, rr)
+							if rrerr == nil {
+								continue
 							}
-						} else {
-							lstcn = cn
-							failed = true
-							break
 						}
-					}
-				} else {
-					if cnttxtr == cr {
-						cnttxtr = 0
-					}
-					cntatvbuf.WriteRune(cr)
-				}
-			} else {
-				if iorw.IsTxtPar(cr) {
-					lstcn = cn
-					failed = true
-					break
-				} else if cr == '@' {
-					lstcn = cn
-					failed = true
-					break
-				} else if cr == '/' {
-					if len(crntElemName) > 0 && !invalidElems[crntElemName] {
-						if isStartElem {
-							failed = true
-							lstcn = cn
-							break
-						}
-						isSingleElem = true
-						checkfoundElm = true
-						cntprvr = 0
-						return
-					} else if crntElemName == "" {
-						isEndElem = true
-						cntprvr = 0
-						return
-					} else {
-						failed = true
-						lstcn = cn
 						break
 					}
-				} else if unicode.IsSpace(cr) {
-					if len(crntElemName) > 0 && !invalidElems[crntElemName] {
-						cntatvbuf.WriteRune(cr)
-						checkfoundElm = true
-					} else {
-						failed = true
-						lstcn = cn
-						break
-					}
-				} else if validElemChar(cntprvr, cr) {
-					crntElemName += string(cr)
-				} else {
-					failed = true
-					lstcn = cn
-					break
 				}
-			}
-			cntprvr = cr
-		}
-
-		if !failed {
-			failed = chkerr != nil
-		} else if failed {
-			if lstcn > -1 {
-				resetCntntCheckElem(false, false, r[lstcn:]...)
-			} else {
-				resetCntntCheckElem(false, false)
-			}
-		}
-		return
-	}
-
-	var chkfailed, cherr = false, error(nil)
-	cntntprcsatvrunes := func(rns ...rune) (failed bool, prserr error) {
-		if chkfailed, cherr = checkifCntntElem(rns...); cherr != nil {
-			prserr = cherr
-		} else if failed = chkfailed; failed {
-			cntntflushpsv()
-		}
-		return
-	}
-
-	var elemName = ""
-	var elemPath = ""
-	var elemExt = ""
-
-	currentPathRoot := func() string {
-		if cntemlfndl := len(cntelmsfoundlevel); cntemlfndl > 0 {
-			return cntelmsfoundlevel[cntemlfndl-1].PathRoot()
-		} else {
-			return pathroot
-		}
-	}
-
-	currentElemName := func() (elmnme string) {
-		if cntemlfndl := len(cntelmsfoundlevel); cntemlfndl > 0 {
-			elmnme = cntelmsfoundlevel[cntemlfndl-1].elemName
-		} else {
-			if lstpthi := strings.LastIndex(path, "."); lstpthi > 0 {
-				elmnme = path[:lstpthi]
-			} else {
-				elmnme = path
-			}
-		}
-		return
-	}
-
-	prepairElemName := func(elmNmeToTest string) (elmnmeprpd string) {
-		if !strings.HasPrefix(elmNmeToTest, ":") {
-			if crntnme := currentElemName(); crntnme != "" {
-				if isEndElem && strings.HasSuffix(crntnme, elmNmeToTest) {
-					elmnmeprpd = crntnme[:len(crntnme)-len(elmNmeToTest)] + elmNmeToTest
-				} else {
-					if colonsepi := strings.LastIndex(crntnme, ":"); colonsepi > -1 {
-						elmnmeprpd = crntnme[:colonsepi+1] + elmNmeToTest
-					} else {
-						elmnmeprpd = elmNmeToTest
-					}
+				if ctntelmlvl.String() == "single" {
+					ctntelmlvl = ctntElemUnknown
+					flsrmng = append(flsrmng, '/')
 				}
-			} else {
-				elmnmeprpd = elmNmeToTest
-			}
-		} else {
-			elmnmeprpd = elmNmeToTest
-		}
-		return
-	}
-
-	var elemToUse *elemfound = nil
-	var istmplt = false
-	var validCntntElem = func() (valid bool) {
-		if isStartElem = (crntElemName != "" && !isStartElem && !isSingleElem && !isEndElem); fs != nil && ((isSingleElem || isStartElem) || isEndElem) && crntElemName != "" {
-			if elemExt = filepath.Ext(crntElemName); elemExt != "" {
-				if elemExt == pathext {
-					crntElemName = crntElemName[:len(crntElemName)-len(elemExt)]
+				if lbli[1] > 0 {
+					flsrmng = append(flsrmng, postlbl[:lbli[1]]...)
+					lbli[1] = 0
 				}
-			}
-			if istmplt = strings.HasPrefix(crntElemName, ":_:"); istmplt {
 				return
 			}
-			if elemName = prepairElemName(crntElemName); invalidElems[elemName] {
-				elemToUse = nil
-				return
-			} else if elemToUse = cntelmsfound[elemName]; elemToUse != nil {
-				valid = true
-				return
-			} else if isEndElem {
-				return
-			}
-
-			elemPath = strings.Replace(elemName, ":", "/", -1)
-			if elemPath[0] != '/' {
-				crntelempath := currentPathRoot()
-				if strings.Contains(elemPath, "/") {
-					elemPath = func() (pthfnd string) {
-						testElemPath := elemPath
-						for testElemPath != "" {
-							if ctnsi := strings.LastIndex(testElemPath, "/"); ctnsi > 0 {
-								if strings.HasSuffix(crntelempath, testElemPath[:ctnsi+1]) {
-									testElemPath = testElemPath[:ctnsi+1]
-									break
-								}
-								testElemPath = testElemPath[:ctnsi]
-							} else {
-								testElemPath = ""
-								break
-							}
-						}
-						return crntelempath + elemPath[len(testElemPath):]
-					}()
-				} else {
-					elemPath = crntelempath + elemPath
-				}
-			}
-			if elemExt == "" {
-				elemExt = pathext
-			}
-			if invalidElems[elemName] {
-				elemToUse = nil
-				return
-			} else {
-				var elmfnd *elemfound = nil
-				if elemExt != "" {
-					if pthi := strings.LastIndex(elemPath, "."); pthi > -1 && elemExt == elemPath[pthi:] {
-						elemPath = elemPath[:pthi]
-					}
-				}
-				if elemExt != "" {
-					if strings.HasSuffix(elemPath, "/") {
-						for _, finfo := range fs.LS(elemPath + "index" + elemExt) {
-							if !finfo.IsDir() {
-								elmfnd = nextElemFound(elemName, finfo, fs)
-							}
-						}
-					} else {
-						for _, finfo := range fs.LS(elemPath + elemExt) {
-							if !finfo.IsDir() {
-								elmfnd = nextElemFound(elemName, finfo, fs)
-							}
-						}
-					}
-				}
-				if elmfnd == nil && elemExt == "" {
-					if strings.HasSuffix(elemPath, "/") {
-						for _, nxtext := range []string{".html"} {
-							for _, finfo := range fs.LS(elemPath + nxtext) {
-								if !finfo.IsDir() {
-									elmfnd = nextElemFound(elemName, finfo, fs)
-								}
-							}
-							if elmfnd != nil {
-								break
-							}
-						}
-					} else {
-						for _, nxtext := range []string{".html"} {
-							for _, finfo := range fs.LS(elemPath + nxtext) {
-								if !finfo.IsDir() {
-									elmfnd = nextElemFound(elemName, finfo, fs)
-								}
-							}
-							if elmfnd != nil {
-								break
-							}
-						}
-					}
-				}
-				if valid = elmfnd != nil; valid {
-					cntelmsfound[elemName] = elmfnd
-					elemToUse = elmfnd
-				} else {
-					invalidElems[elemName] = true
-					elemToUse = nil
-				}
-			}
-		}
-		return
-	}
-
-	cntntflushatv := func() (prserr error) {
-		validElem, startElem, singleElem, endElem := validCntntElem(), isStartElem, isSingleElem, isEndElem
-		if elemToUse != nil {
-			cntntflushpsv()
-			if validElem && (startElem || singleElem) {
-				elemToUse = elemToUse.Clone()
-				if cntatvbuf.Size() > 0 {
-					elemToUse.PreElmBuffer().Print(strings.TrimFunc(cntatvbuf.String(), iorw.IsSpace))
-					cntatvbuf.Clear()
-				}
-				elemToUse.isdone = singleElem
-				resetCntntCheckElem(true, true)
-				cntelmsfoundlevel[len(cntelmsfoundlevel)] = elemToUse
-				cntelmsfndL++
-				if singleElem {
-					ctntrdr.PreAppend(elemToUse.NextRuneReader(false, true, func(elmfnd *elemfound, rerr error) (clserr error) {
-
-						return
-					}, nil))
-				}
-				elemToUse = nil
-			} else if validElem && endElem {
-				if cntntelml, ctntelm := len(cntelmsfoundlevel), cntelmsfoundlevel[len(cntelmsfoundlevel)-1]; ctntelm != nil {
-					if ctntelm.elemName == elemToUse.elemName {
-						if !ctntelm.isdone {
-							if cntatvbuf.Size() > 0 {
-								ctntelm.PostElmBuffer().Print(strings.TrimFunc(cntatvbuf.String(), iorw.IsSpace))
-								cntatvbuf.Clear()
-							}
-							resetCntntCheckElem(true, true)
-							ctntelm.isdone = true
-							if ctntelm.ctnt != nil && ctntelm.ctnt.Size() > 0 {
-								ctntrdr.PreAppend(ctntelm.NextRuneReader(false, true, func(elmfnd *elemfound, rerr error) (clserr error) {
-
-									return
-								}, ctntelm.ctnt.Clone(true)))
-							} else {
-								ctntrdr.PreAppend(ctntelm.NextRuneReader(false, true, func(elmfnd *elemfound, rerr error) (clserr error) {
-
-									return
-								}, nil))
-							}
-						} else {
-							resetCntntCheckElem(true, true)
-							if rplcrwctnt := ctntelm.RawContentReader(func(elmfnd *elemfound, rerr error) (clserr error) {
-
-								return
-							}); rplcrwctnt != nil {
-								ctntrdr.PreAppend(rplcrwctnt)
-
-							}
-							ctntelm.Close()
-							delete(cntelmsfoundlevel, cntntelml-1)
-							cntelmsfndL--
-						}
-					}
-				}
-				elemToUse = nil
-				resetCntntCheckElem(true, true)
-			} else {
-				resetCntntCheckElem(true, false)
-				cntntflushpsv()
-			}
-			elemToUse = nil
-		} else {
-			if istmplt {
-				resetCntntCheckElem(true, istmplt && singleElem)
-				istmplt = false
-			} else {
-				resetCntntCheckElem(true, false)
-			}
-			cntntflushpsv()
-		}
-		return
-	}
-
-	cdetxtr := rune(0)
-	cdemde := ""
-	cdeprvr := rune(0)
-	cdelstr := rune(0)
-
-	cdepsvlbl := []rune("<@")
-	cdeatvlbl := []rune("@>")
-	cdelbli := []int{0, 0}
-
-	cdeprserr := error(nil)
-
-	cdepsvbuf := iorw.NewBuffer()
-	defer cdepsvbuf.Close()
-	cdeatvbuf := iorw.NewBuffer()
-	defer cdeatvbuf.Close()
-
-	cdefoundcode := false
-	cdeHasCode := false
-
-	if invertActive {
-		cdelbli[0] = 2
-		cdelbli[1] = 0
-		cdefoundcode = true
-	}
-
-	codebuf := iorw.NewBuffer()
-	defer codebuf.Close()
-
-	cdeprevr := func() rune {
-		return cdeprvr
-	}
-
-	cdesetprevr := func(r rune) {
-		cdeprvr = r
-	}
-
-	cdecancheckpsv := func() bool {
-		return true
-	}
-
-	cdecancheckatv := func() bool {
-		return cdetxtr == 0 && cdemde == ""
-	}
-
-	cdeprcspsvrunes := func(rns ...rune) (prserr error) {
-		if cdeHasCode {
-			cdeHasCode = false
-		}
-		cdepsvbuf.WriteRunes(rns...)
-		return
-	}
-
-	cdeflushpsv := func() (prserr error) {
-		if cdepsvs := cdepsvbuf.Size(); cdepsvs > 0 {
-			hstmpltfx := cdepsvbuf.HasPrefix("`") && cdepsvbuf.HasSuffix("`") && cdepsvs >= 2
-			if hstmpltfx && !cdefoundcode {
-				cdefoundcode = true
-			}
-			if !parseOnly && cdefoundcode {
-				if cdelstr > 0 {
-					if hstmpltfx {
-						cdeatvbuf.Print(cdepsvbuf.Clone(true).Reader(true))
-					} else {
-						if cdepsvbuf.Contains("${") || cdepsvbuf.Contains("`") {
-							cdeatvbuf.Print("`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), "`", "\\`", "${", "\\${"), "`")
-						} else {
-							cdeatvbuf.Print("`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), "`")
-						}
-					}
-					cdelstr = 0
-				} else {
-					if hstmpltfx {
-						cdeatvbuf.Print("print(", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), ");")
-					} else {
-						if cdepsvbuf.Contains("${") || cdepsvbuf.Contains("`") {
-							cdeatvbuf.Print("print(`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`, "`", "\\`", "${", "\\${"), "`);")
-						} else {
-							cdeatvbuf.Print("print(`", iorw.NewReplaceRuneReader(cdepsvbuf.Clone(true).Reader(true), `"\`, `"\\`), "`);")
-						}
-					}
-				}
-			} else {
-				if _, prserr = cdepsvbuf.WriteTo(out); prserr == nil {
-					if cancache {
-						if chdpsvbuf == nil {
-							chdpsvbuf = iorw.NewBuffer()
-						}
-						_, prserr = cdepsvbuf.WriteTo(chdpsvbuf)
-					}
-					cdepsvbuf.Clear()
-				}
-			}
-		}
-		return
-	}
-
-	validcdecnmst := map[string]string{"//": "S", "/*": "MS", "*/": "ME", "import": "I"}
-	cdetmps := ""
-	cdelstmde := ""
-	cdeimpoffset := int64(0)
-
-	var codeFlushImports = func(cdeimprtatvbuf *iorw.Buffer) {
-		if cdeimprtatvbuf.Size() > 0 {
-			defer cdeimprtatvbuf.Clear()
-			if tmpimports := cdeimprtatvbuf.String(); tmpimports != "" {
-				cdeimprtatvbuf.Clear()
-				tmpimports = strings.TrimSpace(tmpimports)
-				imprtcde := ""
-				if frmindex := strings.Index(tmpimports, "from"); frmindex > 0 {
-					tmpimports1 := strings.TrimSpace(tmpimports[:frmindex])
-					tmpimports2 := strings.TrimSpace(tmpimports[frmindex+len("from"):])
-
-					if tmpimports1 != "" && tmpimports2 != "" {
-						imprtcde += `var _default_mod=require(` + tmpimports2 + `);`
-						tstxtr := rune(0)
-						tstbrc := 0
-						crntelems := []string{}
-						crntmod := []string{}
-						tmprns := []rune{}
-						cdemode := "_default_mod"
-						capturetmprns := func() {
-							if len(tmprns) > 0 {
-								if crnttmp := string(tmprns); crnttmp != "" {
-									if tstbrc == 1 {
-										crntelems = append(crntelems, crnttmp)
-									} else if tstbrc == 0 {
-										crntmod = append(crntmod, crnttmp)
-									}
-								}
-							}
-							tmprns = nil
-						}
-						propImportCode := func() {
-							if tstbrc == 1 {
-								if crntelml := len(crntelems); crntelml > 0 {
-									if crntelml == 3 && crntelems[1] == "as" {
-										imprtcde += "const " + crntelems[2] + "=" + cdemode + `["` + crntelems[0] + `"];`
-									} else if crntelml == 1 {
-										imprtcde += "const " + crntelems[0] + "=" + cdemode + `["` + crntelems[0] + `"];`
-									}
-									crntelems = nil
-								}
-							} else {
-								if crntmdl := len(crntmod); crntmdl > 0 {
-									if crntmdl == 3 && crntmod[1] == "as" {
-										imprtcde += "const " + crntmod[2] + "=" + cdemode + ";"
-									} else if crntmdl == 1 {
-										imprtcde += "const " + crntmod[1] + "=" + cdemode + ";"
-									}
-									crntmod = nil
-								}
-							}
-						}
-						for _, tsr := range tmpimports1 {
-							if tstxtr == 0 {
-								if tsr == '"' {
-									tstxtr = tsr
-									continue
-								}
-								if tsr == '{' {
-									tstbrc = 1
-								} else if tsr == '}' {
-									capturetmprns()
-									propImportCode()
-									tstbrc = 0
-								} else if tsr == ',' {
-									capturetmprns()
-									if tstbrc == 0 {
-										propImportCode()
-									}
-								} else {
-									if !iorw.IsSpace(tsr) {
-										tmprns = append(tmprns, tsr)
-									} else {
-										capturetmprns()
-									}
-								}
-							} else {
-								if tstxtr == tsr {
-									tstxtr = 0
-									continue
-								}
-								tmprns = append(tmprns, tsr)
-							}
-						}
-						capturetmprns()
-						propImportCode()
-					}
-				} else {
-					imprtcde += `require(` + tmpimports + `);`
-				}
-				cdeatvbuf.Print(imprtcde)
-			}
-		}
-	}
-
-	cdeprcsatvrunes := func(rns ...rune) (failed bool, prserr error) {
-		if !cdeHasCode {
-			cdeHasCode = true
-			if cdemde != "" {
-				cdemde = ""
-			}
-			if cdetmps != "" {
-				cdetmps = ""
-			}
-			if !cdefoundcode {
-				cdefoundcode = true
-			}
-		}
-		for _, r := range rns {
-			if cdetxtr == 0 {
-				if cdeprvr != '\\' && iorw.IsTxtPar(r) {
-					cdetxtr = r
-					cdelstr = 0
-					cdetmps = ""
-				} else {
-					if !iorw.IsSpace(r) {
-						if validLastCdeRuneMap[r] > 0 {
-							if r == '/' {
-								if !strings.ContainsFunc("*/", func(r rune) bool {
-									return r == cdeprvr
-								}) {
-									cdelstr = r
-								} else {
-									cdelstr = 0
-								}
-							} else {
-								cdelstr = r
-							}
-						} else {
-							cdelstr = 0
-						}
-						if cdemde == "" {
-							if cdemde = validcdecnmst[cdetmps]; cdemde != "" {
-								cdetmps = ""
-								if cdelstmde = cdemde; cdelstmde == "I" {
-									cdeimpoffset = cdeatvbuf.Size()
-								} else {
-									cdeimpoffset = -1
-								}
-							} else if len(cdetmps) >= 6 {
-								cdetmps = ""
-							}
-						} else if cdelstmde == "MS" {
-							if validcdecnmst[cdetmps] == "ME" {
-								cdemde = ""
-								cdelstmde = ""
-								cdetmps = ""
-							} else if len(cdetmps) >= 2 {
-								cdetmps = ""
-							}
-						} else if cdelstmde == "I" {
-							if r == ';' {
-								cdelstmde = ""
-								if cdeimpoffset > -1 {
-									cdeimpoffset -= int64(len("import"))
-									cdeatvprebuf := iorw.NewBuffer()
-									cdeatvprebuf.ReadFrom(cdeatvbuf.Reader(0, cdeimpoffset+1))
-									cdeimprtbuf := iorw.NewBuffer()
-									cdeimprtbuf.ReadFrom(cdeatvbuf.Reader(cdeimpoffset, cdeatvbuf.Size()))
-									cdeimpoffset = -1
-									cdeatvbuf.Clear()
-									cdeatvprebuf.WriteTo(cdeatvbuf)
-									cdeatvprebuf.Clear()
-									codeFlushImports(cdeimprtbuf)
-									if !cdeatvbuf.HasSuffix(";") {
-										cdeatvbuf.WriteRune(r)
-									}
-								}
-							}
-							cdetmps = ""
-						} else {
-							cdetmps = ""
-						}
-					} else {
-						if cdetmps != "" {
-							cdetmps = ""
-						}
-						if r == '\n' {
-							if cdemde == "S" {
-								cdemde = ""
-								cdelstmde = ""
-							}
-						}
-					}
-				}
-			} else if cdetxtr == r {
-				if cdeprvr != '\\' {
-					cdetxtr = 0
-				}
-			}
-			cdeprvr = r
-		}
-		cdeatvbuf.WriteRunes(rns...)
-		return
-	}
-
-	cdeflushatv := func() (prserr error) {
-		if cdeatvbuf.Size() > 0 {
-			cdeatvbuf.WriteTo(codebuf)
-			cdeatvbuf.Clear()
-		}
-		return
-	}
-
-	var failed = false
-	var crntprsrfunc = func(r rune, prvr func() rune, setprevr func(rune), cancheckpsv func() bool, processpsvrunes func(...rune) error, flushpsv func() error, cancheckatv func() bool, processatvrunes func(...rune) (bool, error), flushatv func() error, lbli []int, psvlbl []rune, atvlbl []rune) (prserr error) {
-
-		if psvi, psvl, atvi, atvl := lbli[0], len(psvlbl), lbli[1], len(atvlbl); atvi == 0 && psvi < psvl {
-			if psvi > 0 && psvlbl[psvi-1] == prvr() && psvlbl[psvi] != r {
+			if lbli[0] > 0 {
+				flsrmng = append(flsrmng, prelbl[:lbli[0]]...)
 				lbli[0] = 0
-				setprevr(0)
-				if prserr = processpsvrunes(psvlbl[:psvi]...); prserr != nil {
-					return
-				}
 			}
-			if cancheckpsv() && psvlbl[psvi] == r {
-				lbli[0]++
-				if (psvi + 1) == psvl {
-					flushpsv()
-					setprevr(0)
-				}
-			} else {
-				if psvi > 0 {
-					lbli[0] = 0
-					setprevr(0)
-					if prserr = processpsvrunes(psvlbl[:psvi]...); prserr != nil {
-						return
-					}
-				}
-				setprevr(r)
-				prserr = processpsvrunes(prvr())
+			if ctntelmlvl.String() == "end" {
+				ctntelmlvl = ctntElemUnknown
+				flsrmng = append(flsrmng, '/')
 			}
-		} else if psvi == psvl && atvi < atvl {
-			if cancheckatv() && atvlbl[atvi] == r {
-				lbli[1]++
-				if (atvi + 1) == atvl {
-					flushatv()
-					lbli[0] = 0
-					lbli[1] = 0
-					setprevr(0)
-				}
-			} else {
-				if atvi > 0 {
-					lbli[1] = 0
-					if failed, prserr = processatvrunes(psvlbl[:psvi]...); prserr != nil {
-						return
-					} else if failed {
-						lbli[0] = 0
-						lbli[1] = 0
-						setprevr(0)
-					}
-				}
-				if failed, prserr = processatvrunes(r); prserr != nil {
-					return
-				} else if failed {
-					lbli[0] = 0
-					lbli[1] = 0
-					setprevr(0)
-				}
+			if len(ctntelmname) > 0 {
+				flsrmng = append(flsrmng, ctntelmname...)
+				ctntelmname = nil
 			}
+			flsrmng = append(flsrmng, r...)
+			if lbli[1] > 0 {
+				flsrmng = append(flsrmng, postlbl[:lbli[1]]...)
+				lbli[1] = 0
+			}
+			return
 		}
+		lbli[0] = 0
+		lbli[1] = 0
+		ctntprvr = 0
+		ctntfndname = false
+		ctntelmlvl = ctntElemUnknown
+		ctntelmname = nil
+		ctntprsvatvbuf.Clear()
+		return
+	}
+	var ctntprsatv func(prvr, r rune, prelbl, postlbl []rune, lbli []int) (invld bool) = nil
+	ctntprsatv = func(prvr, r rune, prelbl, postlbl []rune, lbli []int) (invld bool) {
+		if ctntfndname {
+			if ctnttxtr == 0 {
+				if r == '/' {
+					if ctntelmlvl != ctntElemSingle {
+						ctntelmlvl = ctntElemSingle
+						return
+					}
+					invld = true
+					ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
+					return
+				}
+				if iorw.IsSpace(r) {
+					if ctntelmlvl == ctntElemSingle {
+						invld = true
+						ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
+						return
+					}
+				}
+				if prvr != '\\' && iorw.IsTxtPar(r) {
+					ctnttxtr = r
+				}
+			}
+			ctntprsvatvbuf.WriteRune(r)
+			return
+		}
+		if r == '/' {
+			if ctntelmlvl != ctntElemEnd {
+				if len(ctntelmname) == 0 {
+					ctntelmlvl = ctntElemEnd
+					ctntprvr = 0
+					return
+				}
+				ctntfndname = true
+				invld = ctntprsatv(prvr, r, prelbl, postlbl, lbli)
+				return
+			}
+			invld = true
+			ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
+			return
+		}
+		if iorw.IsSpace(r) {
+			if invld = len(ctntelmname) == 0; invld {
+				ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
+				return
+			}
+			if ctntelmlvl != ctntElemEnd {
+				ctntfndname = true
+				ctntprsvatvbuf.WriteRune(r)
+				return
+			}
+			invld = true
+			ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
+			return
+		}
+
+		if invld = !validElemChar(func() rune {
+			if ctntelmlvl == ctntElemEnd && prvr == '/' {
+				return 0
+			}
+			return prvr
+		}(), r); !invld {
+			ctntelmname = append(ctntelmname, r)
+			return
+		}
+		ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli, r)...)
 		return
 	}
 
-	for (prcsection == 0 || prcsection == 1) && prsngerr == nil {
-		if cntelmsfndL > 0 || (cntelmsfndL == 0 && prcsection == 0) {
-			cntr, cnts, cnterr := ctntrdr.ReadRune()
-			if (cnterr == nil || cnterr == io.EOF) && cnts > 0 {
-				if cntntprserr = crntprsrfunc(cntr, cntntprevr, cntntsetprevr, cntntcancheckpsv, cntntprcspsvrunes, cntntflushpsv, cntntcancheckatv, cntntprcsatvrunes, cntntflushatv, cntntlbli, cntntpsvlbl, cntntatvlbl); cntntprserr != nil {
-					prsngerr = cntntprserr
+	var elempath = strings.Replace(pathroot, "/", ":", -1)
+	var elemlevels = []*contentelem{}
+	defer func() {
+		for len(elemlevels) > 0 {
+			elemlevels[0].Close()
+			elemlevels = elemlevels[1:]
+		}
+	}()
+
+	var addelemlevel = func(fi fsutils.FileInfo, elemname string, elemext string) (elmnext *contentelem) {
+		elmnext = &contentelem{
+			modified: fi.ModTime(),
+			fi:       fi,
+			elemname: elemname,
+			elemroot: elemname[:strings.LastIndex(elemname, ":")+1],
+			elemext:  elemext,
+		}
+		//println(fi.Path())
+		validelempaths[fi.Path()] = fi.ModTime()
+		elemlevels = append([]*contentelem{elmnext}, elemlevels...)
+		return
+	}
+
+	var ctntparser parsefunc = nil
+
+	ctntparser = func(r rune, preLen, postLen int, prelbl, postlbl []rune, lbli []int) (prserr error) {
+		if ctnttxtr == 0 {
+			if lbli[1] == 0 && lbli[0] < preLen {
+				if lbli[0] > 1 && ctntprvr == prelbl[lbli[0]-1] && r != prelbl[lbli[0]] {
+					for _, cder := range prelbl[:lbli[0]] {
+						if prserr = ctntprspsv(cder); prserr != nil {
+							return
+						}
+
+					}
+					lbli[0] = 0
+					ctntprvr = 0
+					return ctntparser(r, preLen, postLen, prelbl, postlbl, lbli)
+				}
+				if prelbl[lbli[0]] == r {
+					lbli[0]++
+					if lbli[0] == preLen {
+						ctntprvr = 0
+						return
+					}
+					ctntprvr = r
 					return
 				}
-			} else {
-				if cntntprserr != nil && cntntprserr != io.EOF {
-					return
+				if lbli[0] > 0 {
+					for _, cder := range prelbl[:lbli[0]] {
+						if prserr = ctntprspsv(cder); prserr != nil {
+							return
+						}
+					}
+					lbli[0] = 0
 				}
-				if cntpsvbuf.Size() > 0 {
-					cntntflushpsv()
-				} else if cntatvbuf.Size() > 0 {
-					cntntflushatv()
-				} else {
-					prcsection = -1
-				}
+				ctntprvr = r
+				prserr = ctntprspsv(ctntprvr)
+				return
 			}
-		} else if prcsection == 1 {
-			cder, cdes, cdeerr := cderdr.ReadRune()
-			if cdes > 0 && (cdeerr == nil || cdeerr == io.EOF) {
-				if cdeprserr = crntprsrfunc(cder, cdeprevr, cdesetprevr, cdecancheckpsv, cdeprcspsvrunes, cdeflushpsv, cdecancheckatv, cdeprcsatvrunes, cdeflushatv, cdelbli, cdepsvlbl, cdeatvlbl); cdeprserr != nil {
-					prsngerr = cdeprserr
+			if lbli[0] == preLen && lbli[1] < postLen {
+				if postlbl[lbli[1]] == r {
+					lbli[1]++
+					if lbli[1] == postLen {
+						if ctntfndname, elemname, ctntelmlvl := ctntfndname || len(ctntelmname) > 0, string(ctntelmname), func() ctntelemlevel {
+							if ctntelmlvl == ctntElemUnknown {
+								return ctntElemStart
+							}
+							return ctntelmlvl
+						}(); ctntfndname && !strings.HasPrefix(elemname, ":_:") {
+							if fs != nil {
+								var fi fsutils.FileInfo = nil
+
+								fullelemname := func() string {
+									if elemname[0:1] == ":" {
+										return elemname
+									}
+
+									if crntnextelm != nil {
+										return crntnextelm.elemroot + elemname
+									}
+									return elempath + elemname
+								}()
+								if ctntelmlvl == ctntElemStart || ctntelmlvl == ctntElemSingle {
+									testpath := strings.Replace(fullelemname, ":", "/", -1)
+									testext := filepath.Ext(testpath)
+
+									if fi = func() fsutils.FileInfo {
+										if fs == nil {
+											return nil
+										}
+										if testext == "" {
+											testext = pathext
+										}
+										if fullelemname[len(fullelemname)-1] == ':' {
+											for _, nextpth := range []string{testext, ".js"} {
+												if nextpth != "" && nextpth[0:1] == "." {
+													if fios := fs.LS(testpath + "index" + nextpth); len(fios) == 1 {
+														return fios[0]
+													}
+												}
+											}
+										}
+										if fios := fs.LS(testpath + testext); len(fios) == 1 {
+											return fios[0]
+										}
+										return nil
+									}(); fi == nil {
+										ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
+										ctntprvr = 0
+										prserr = flushctntrmng()
+										return
+									}
+									crntnextelm = addelemlevel(fi, fullelemname, fi.PathExt())
+									if !ctntprsvatvbuf.Empty() {
+										crntnextelm.prebuf = ctntprsvatvbuf.Clone(true)
+									}
+									ctntflushInvalid(false, prelbl, postlbl, lbli)
+									if ctntelmlvl.String() == "single" {
+										crntnextelm.eofevent = func(crntelm *contentelem, elmerr error) {
+											if elmerr == nil {
+												if !crntelm.rawBuf.Empty() {
+													ctntrdr.PreAppend(crntnextelm.rawBuf.Clone(true).Reader(true))
+												}
+												crntelm.Close()
+												crntnextelm = nil
+												if elemlvlL := len(elemlevels); elemlvlL > 0 {
+													elemlevels = elemlevels[1:]
+													if elemlvlL > 1 {
+														crntnextelm = elemlevels[0]
+														return
+													}
+												}
+												return
+											}
+											prserr = elmerr
+										}
+										ctntrdr.PreAppend(crntnextelm)
+										return
+									}
+									return
+								}
+								if ctntelmlvl.String() == "end" {
+									if crntnextelm != nil && crntnextelm.elemname == fullelemname {
+										if !ctntprsvatvbuf.Empty() {
+											crntnextelm.postbuf = ctntprsvatvbuf.Clone(true)
+										}
+										ctntflushInvalid(false, prelbl, postlbl, lbli)
+										crntnextelm.eofevent = func(crntelm *contentelem, elmerr error) {
+											if elmerr == nil {
+												if !crntelm.rawBuf.Empty() {
+													ctntrdr.PreAppend(crntnextelm.rawBuf.Clone(true).Reader(true))
+												}
+												crntelm.Close()
+												crntnextelm = nil
+												if elemlvlL := len(elemlevels); elemlvlL > 0 {
+													elemlevels = elemlevels[1:]
+													if elemlvlL > 1 {
+														crntnextelm = elemlevels[0]
+														return
+													}
+												}
+												return
+											}
+											prserr = elmerr
+										}
+										ctntrdr.PreAppend(crntnextelm)
+										return
+									}
+								}
+								ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
+								ctntprvr = 0
+								prserr = flushctntrmng()
+								return
+							}
+							ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
+							ctntprvr = 0
+							prserr = flushctntrmng()
+							return
+						}
+						ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
+						ctntprvr = 0
+						prserr = flushctntrmng()
+						return
+					}
 					return
 				}
-			} else {
-				if cdeerr != nil && cdeerr != io.EOF {
+				ctntprsinvld := false
+				if lbli[1] > 0 {
+					for _, atvr := range prelbl[:lbli[1]] {
+						if ctntprsinvld {
+							ctntrmngbuf.WriteRune(atvr)
+							continue
+						}
+						ctntprsinvld = ctntprsatv(ctntprvr, atvr, prelbl, postlbl, lbli)
+						ctntprvr = atvr
+					}
+					lbli[1] = 0
+					if ctntprsinvld {
+						ctntrmngbuf.WriteRune(r)
+						ctntprvr = 0
+						prserr = flushctntrmng()
+						return
+					}
+				}
+				if ctntprsinvld = ctntprsatv(ctntprvr, r, prelbl, postlbl, lbli); ctntprsinvld {
+					ctntprvr = 0
+					prserr = flushctntrmng()
 					return
 				}
-				prcsection = 0
+				ctntprvr = r
+				return
 			}
 		}
+		if ctnttxtr > 0 {
+			if ctntprvr != '\\' && ctnttxtr == r {
+				ctntprsvatvbuf.WriteRune(r)
+				ctnttxtr = 0
+				ctntprvr = r
+				return
+			}
+			ctntprsvatvbuf.WriteRune(r)
+			ctntprvr = r
+		}
+		ctntprvr = r
+		return
 	}
-	if prsngerr == nil {
-		cdeflushpsv()
-		cdeflushatv()
-		if evalcode != nil {
+
+	var prsc rune
+	var prscs int
+	var prscerr error
+	for prsngerr == nil && !dneprsng {
+		if prsc, prscs, prscerr = ctntrdr.ReadRune(); prscs > 0 && (prscerr == nil || prscerr == io.EOF) {
+			if prsngerr == nil && cdelbli[0] == cdepreL {
+				prsngerr = cdeparser(prsc, cdepreL, cdepostL, cdelblrns[0], cdelblrns[1], cdelbli)
+				continue
+			}
+			prsngerr = ctntparser(prsc, ctntpreL, ctntpostL, ctntlblrns[0], ctntlblrns[1], ctntlbli)
+		}
+		if dneprsng = prscerr == io.EOF; !dneprsng && prscerr != nil {
+			prsngerr = prscerr
+		}
+	}
+
+	if prsngerr == nil && dneprsng {
+		if prsngerr = cdeflushpsv(); prsngerr == nil {
+			cdeflushatv()
 			var chdpgrm interface{} = nil
-			if codebuf.Size() > 0 {
-				var cderead = iorw.NewReplaceRuneReader(codebuf.Clone(true).Reader(true), "$db.", "$.dbms", "$schdl.", "$.scheduling", "$log.", "$.log")
-				cderead.WriteTo(codebuf)
-				prsngerr = evalcode(codebuf.Reader(), func() interface{} {
-					return chdpgrm
-				}, func(prgm interface{}) {
-					chdpgrm = prgm
-				})
+			if !cdebuf.Empty() {
+				if evalcode != nil {
+					_, prsngerr = evalcode(cdebuf.Reader(), func(prgm interface{}) {
+						chdpgrm = prgm
+					})
+				}
 			}
 			if prsngerr == nil {
-				if cancache && prsngerr == nil {
-					if fullpath != "" {
-						if crntscrpt := GLOBALCACHEDSCRIPTING().Load(pathModified, chdpsvbuf, codebuf, cntelmsfound, func() (scrptpath string) {
-							if invertActive {
-								return "/active:" + fullpath
-							}
-							return fullpath
-						}()); crntscrpt != nil && chdpgrm != nil {
-							crntscrpt.SetScriptProgram(chdpgrm)
-						}
-					}
+				if capturecache != nil {
+					prsngerr = capturecache(fullpath, pathModified, validelempaths, chdpsvbuf, cdebuf, chdpgrm)
 				}
 			}
 		}
 	}
-	return
 
+	return
 }
 
-var validElmRunes = map[rune]int{'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1, 'G': 1, 'H': 1, 'I': 1, 'J': 1, 'K': 1, 'L': 1, 'M': 1, 'N': 1, 'O': 1, 'P': 1, 'Q': 1, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 1, 'W': 1, 'X': 1, 'Y': 1, 'Z': 1,
-	'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1, 'f': 1, 'g': 1, 'h': 1, 'i': 1, 'j': 1, 'k': 1, 'l': 1, 'm': 1, 'n': 1, 'o': 1, 'p': 1, 'q': 1, 'r': 1, 's': 1, 't': 1, 'u': 1, 'v': 1, 'w': 1, 'x': 1, 'y': 1, 'z': 1,
-	'0': 1, '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, '8': 1, '9': 1,
-	':': 1, '-': 1, '_': 1, '.': 1}
+/*var validElmRunes = map[rune]int{'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1, 'G': 1, 'H': 1, 'I': 1, 'J': 1, 'K': 1, 'L': 1, 'M': 1, 'N': 1, 'O': 1, 'P': 1, 'Q': 1, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 1, 'W': 1, 'X': 1, 'Y': 1, 'Z': 1,
+'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1, 'f': 1, 'g': 1, 'h': 1, 'i': 1, 'j': 1, 'k': 1, 'l': 1, 'm': 1, 'n': 1, 'o': 1, 'p': 1, 'q': 1, 'r': 1, 's': 1, 't': 1, 'u': 1, 'v': 1, 'w': 1, 'x': 1, 'y': 1, 'z': 1,
+'0': 1, '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, '8': 1, '9': 1,
+':': 1, '-': 1, '_': 1, '.': 1}*/
+
+func validElmchar(cr rune) bool {
+	return ('a' <= cr && cr <= 'z') || ('A' <= cr && cr <= 'Z') || cr == ':' || cr == '.' || cr == '-' || cr == '_' || ('0' <= cr && cr <= '9')
+}
 
 func validElemChar(prvr, r rune) (valid bool) {
-	valid = true
 	if prvr > 0 {
-		if valid = validElemChar(0, prvr); valid {
-			valid = validElmRunes[r] == 1
-		}
-	} else if valid {
-		valid = validElmRunes[r] == 1
+		valid = validElmchar(prvr) && validElmchar(r)
+		return
 	}
+	valid = validElmchar(r)
 	return
 }
