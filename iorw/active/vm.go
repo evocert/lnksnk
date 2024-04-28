@@ -346,11 +346,13 @@ var DefaultTransformCode func(code string) (transformedcode string, errors []str
 func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 	if vm != nil && vm.vm != nil {
 		var cdes = ""
-		var chdprgm func() interface{} = nil
+		var chdprgm *goja.Program = nil
 		var setchdprgm func(interface{})
 		var ai, ail = 0, len(a)
+
+		var errfound func(...interface{}) error = nil
 		for ai < ail {
-			if chdpgrmd, chdpgrmdok := a[ai].(func() interface{}); chdpgrmdok {
+			if chdpgrmd, chdpgrmdok := a[ai].(*goja.Program); chdpgrmdok {
 				if chdprgm == nil && chdpgrmd != nil {
 					chdprgm = chdpgrmd
 				}
@@ -362,26 +364,31 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 				}
 				ail--
 				a = append(a[:ai], a[ai+1:]...)
+			} else if errfoundd, errfounddok := a[ai].(func(...interface{}) error); errfounddok {
+				if errfound == nil && errfoundd != nil {
+					errfound = errfoundd
+				}
+				ail--
+				a = append(a[:ai], a[ai+1:]...)
 			} else {
 				ai++
 			}
 		}
-		func() {
-			var cde = iorw.NewMultiArgsReader(a...)
-			defer cde.Close()
-			cdes, _ = cde.ReadAll()
+		if func() {
 			var psrdprgm = func() (p *goja.Program, perr error) {
 				if chdprgm != nil {
-					p, _ = chdprgm().(*goja.Program)
+					p = chdprgm
+					return
 				}
 				if p == nil {
+					var cde = iorw.NewMultiArgsReader(a...)
+					defer cde.Close()
+					cdes, _ = cde.ReadAll()
 					if prsd, prsderr := parser.ParseFile(nil, "", cdes, 0); prsderr == nil {
-						if setchdprgm != nil {
-							if p, perr = goja.CompileAST(prsd, false); perr == nil && p != nil {
+						if p, perr = goja.CompileAST(prsd, false); perr == nil && p != nil {
+							if setchdprgm != nil {
 								setchdprgm(p)
 							}
-						} else {
-							p, perr = goja.CompileAST(prsd, false)
 						}
 					} else {
 						p, perr = nil, prsderr
@@ -389,44 +396,54 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 				}
 				return
 			}
-
-			if p, perr := psrdprgm(); perr == nil && p != nil {
-				if gojaval, gojaerr := vm.vm.RunProgram(p); gojaerr == nil {
+			p, perr := psrdprgm()
+			if perr == nil && p != nil {
+				gojaval, gojaerr := vm.vm.RunProgram(p)
+				if gojaerr == nil {
 					if gojaval != nil {
 						val = gojaval.Export()
+						return
 					}
-				} else {
-					err = gojaerr
+					return
 				}
-			} else {
-				err = perr
+				err = gojaerr
+				return
 			}
-		}()
-		if ErrPrint := vm.ErrPrint; err != nil && ErrPrint != nil {
-			func() {
-				var linecnt = 1
-				var errcdebuf = iorw.NewBuffer()
-				errcdebuf.Print(fmt.Sprintf("%d: ", linecnt))
-				defer errcdebuf.Close()
-				var prvr = rune(0)
-				for _, r := range cdes {
-					if r == '\n' {
-						linecnt++
-						if prvr == '\r' {
-							errcdebuf.WriteRune(prvr)
-						}
-						errcdebuf.WriteRune(r)
-						errcdebuf.Print(fmt.Sprintf("%d: ", linecnt))
-						prvr = 0
-					} else {
-						if r != '\r' {
+			err = perr
+		}(); err != nil {
+			errfns := []func(...interface{}) error{}
+			if vm.ErrPrint != nil {
+				errfns = append(errfns, vm.ErrPrint)
+			}
+			if errfound != nil {
+				errfns = append(errfns, errfound)
+			}
+			for _, ErrPrint := range errfns {
+				func() {
+					var linecnt = 1
+					var errcdebuf = iorw.NewBuffer()
+					errcdebuf.Print(fmt.Sprintf("%d: ", linecnt))
+					defer errcdebuf.Close()
+					var prvr = rune(0)
+					for _, r := range cdes {
+						if r == '\n' {
+							linecnt++
+							if prvr == '\r' {
+								errcdebuf.WriteRune(prvr)
+							}
 							errcdebuf.WriteRune(r)
+							errcdebuf.Print(fmt.Sprintf("%d: ", linecnt))
+							prvr = 0
+						} else {
+							if r != '\r' {
+								errcdebuf.WriteRune(r)
+							}
 						}
+						prvr = r
 					}
-					prvr = r
-				}
-				ErrPrint("err:"+err.Error(), "\r\n", "err-code:"+errcdebuf.String())
-			}()
+					ErrPrint("err:"+err.Error(), "\r\n", "err-code:"+errcdebuf.String())
+				}()
+			}
 		}
 	}
 	return
