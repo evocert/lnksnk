@@ -751,7 +751,7 @@ func (buff *Buffer) SubString(offset ...int64) (s string, err error) {
 // String - return buffer as string value
 func (buff *Buffer) String() (s string) {
 	s = ""
-	if buff != nil {
+	if !buff.Empty() {
 		err := error(nil)
 		if s, err = buff.SubString(0); err != nil {
 			s = ""
