@@ -54,6 +54,21 @@ func Fprint(w io.Writer, a ...interface{}) (err error) {
 					return w.Write(b)
 				}); err != nil {
 					break
+				} else if ir, irok := a[dn].(io.RuneReader); irok {
+					for err == nil {
+						pr, prs, prserr := ir.ReadRune()
+						if prs > 0 && (prserr == nil || prserr == io.EOF) {
+							_, err = w.Write(RunesToUTF8(pr))
+						}
+						if prserr != nil && err == nil {
+							if prserr != io.EOF {
+								err = prserr
+							}
+							break
+						}
+					}
+				} else {
+					break
 				}
 			} else if bf, irok := a[dn].(*Buffer); irok {
 				_, err = bf.WriteTo(w)
@@ -824,4 +839,76 @@ func ToData(format string, a ...interface{}) (data interface{}, err error) {
 		data, err = mltiargrdr.ReadAll()
 	}
 	return
+}
+
+func RunesHasPrefix(runes []rune, subrunes ...rune) bool {
+	if lnrns, lnsubrns := len(runes), len(subrunes); lnrns >= lnsubrns {
+		lnrns = lnsubrns
+		for _, r := range runes[:lnsubrns] {
+			for srn, sr := range subrunes {
+				if sr != r {
+					break
+				}
+				if srn == lnsubrns-1 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func RunesHasSuffix(runes []rune, subrunes ...rune) bool {
+	if lnrns, lnsubrns := len(runes), len(subrunes); lnrns >= lnsubrns {
+		maxrns := lnrns
+		lnrns = lnsubrns
+		for _, r := range runes[maxrns-lnsubrns:] {
+			for srn, sr := range subrunes {
+				if sr != r {
+					break
+				}
+				if srn == lnsubrns-1 {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func IndexOfRunes(runes []rune, subrunes ...rune) int {
+	if lnrns, lnsubrns := len(runes), len(subrunes); lnrns >= lnsubrns {
+		srn := 0
+		for rn, r := range runes {
+			if sr := subrunes[srn]; sr == r {
+				srn++
+				if srn == lnsubrns {
+					return rn - (srn - 1)
+				}
+				continue
+			}
+			srn = 0
+			continue
+		}
+	}
+	return -1
+}
+
+func LastIndexOfRunes(runes []rune, subrunes ...rune) int {
+	if lnrns, lnsubrns := len(runes), len(subrunes); lnrns >= lnsubrns {
+		for rn := range runes {
+			tstrn := lnrns - (rn + lnsubrns)
+			r := runes[tstrn]
+			srn := 0
+			if sr := subrunes[srn]; sr == r {
+				srn++
+				if srn == lnsubrns {
+					return tstrn - (srn - 1)
+				}
+				continue
+			}
+			srn = 0
+		}
+	}
+	return -1
 }
