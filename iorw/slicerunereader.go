@@ -43,21 +43,20 @@ func (rnrdrsslce *RuneReaderSlice) ReadRune() (r rune, size int, err error) {
 	if rnrdrsslce != nil {
 		if rnrdrsslce.crntrdr != nil {
 			r, size, err = rnrdrsslce.crntrdr.ReadRune()
-			if (err == io.EOF && size == 0) || size == 0 {
+			if size == 0 && (err == nil || err == io.EOF) {
 				rnrdrsslce.crntrdr = nil
 				r, size, err = rnrdrsslce.ReadRune()
+				return
 			}
-		} else if rdrsl := len(rnrdrsslce.rnrdrs); rnrdrsslce.crntrdr == nil {
-			if rdrsl > 0 {
-				rnrdrsslce.crntrdr = rnrdrsslce.rnrdrs[0]
-				rnrdrsslce.rnrdrs = rnrdrsslce.rnrdrs[1:]
-				r, size, err = rnrdrsslce.ReadRune()
-			} else {
-				err = io.EOF
-			}
+			return
+		}
+		if rdrsl := len(rnrdrsslce.rnrdrs); rdrsl > 0 {
+			rnrdrsslce.crntrdr = rnrdrsslce.rnrdrs[0]
+			rnrdrsslce.rnrdrs = rnrdrsslce.rnrdrs[1:]
+			return rnrdrsslce.ReadRune()
 		}
 	}
-
+	err = io.EOF
 	return
 }
 
