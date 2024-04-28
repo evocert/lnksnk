@@ -760,6 +760,11 @@ func (buff *Buffer) String() (s string) {
 	return
 }
 
+// Empty - true if Buffer content is empty
+func (buff *Buffer) Empty() bool {
+	return buff == nil || (len(buff.bytes) == 0 && len(buff.buffer) == 0)
+}
+
 // Size - total size of Buffer
 func (buff *Buffer) Size() (s int64) {
 	s = 0
@@ -1220,6 +1225,52 @@ type BuffReader struct {
 	Options       map[string]string
 	DisposeBuffer bool
 	DisposeReader bool
+}
+
+func (bufr *BuffReader) ForEachRunes(foreachrnsfunc func([]rune) error, bufsize int, offsets ...int64) (err error) {
+	if bufr != nil && foreachrnsfunc != nil {
+		if offsetsL := len(offsets); offsetsL > 0 {
+			bufr.Seek(offsets[0], 0)
+			if offsetsL > 1 && ((offsets[1]+1)-offsets[0]) > 0 {
+				bufr.MaxRead = (offsets[1] + 1) - offsets[0]
+			}
+			rns := make([]rune, bufsize)
+			lstri := -1
+			for err == nil {
+				for ri := range bufsize {
+					r, size, rerr := bufr.ReadRune()
+					if size > 0 {
+						lstri = ri
+						rns[lstri] = r
+						if lstri == bufsize-1 {
+							if err = foreachrnsfunc(rns[:lstri+1]); err != nil {
+								return
+							}
+							lstri = -1
+						}
+						if rerr != nil {
+							if lstri > -1 {
+								if err = foreachrnsfunc(rns[:lstri+1]); err != nil {
+									return
+								}
+								lstri = -1
+							}
+							err = rerr
+							break
+						}
+						continue
+					}
+					if rerr == nil {
+						err = io.EOF
+					}
+				}
+			}
+		}
+		if err == io.EOF {
+			err = nil
+		}
+	}
+	return
 }
 
 // DisposeEOFReader - indicate when reader reach EOF then bufr.Close()
