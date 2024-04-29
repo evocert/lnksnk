@@ -135,7 +135,7 @@ func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Co
 				Handler:    handler,
 				Addr:       addr,
 				TLSConfig:  http3.ConfigureTLSConfig(tlsconf[0].Clone()), // use your tls.Config here
-				QuicConfig: &quic.Config{},
+				QUICConfig: &quic.Config{},
 			}
 			go server.ListenAndServe()
 		}
