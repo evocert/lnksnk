@@ -15,8 +15,8 @@ import (
 
 	"github.com/evocert/lnksnk/fsutils"
 
-	js "github.com/dop251/goja"
-	"github.com/dop251/goja/parser"
+	js "github.com/evocert/lnksnk/ja"
+	"github.com/evocert/lnksnk/ja/parser"
 )
 
 type ModuleLoader func(*js.Runtime, *js.Object)

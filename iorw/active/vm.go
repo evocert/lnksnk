@@ -13,12 +13,12 @@ import (
 
 	"github.com/evocert/lnksnk/iorw/active/require"
 
-	"github.com/dop251/goja"
-	"github.com/dop251/goja/parser"
+	"github.com/evocert/lnksnk/ja"
+	"github.com/evocert/lnksnk/ja/parser"
 )
 
 type VM struct {
-	vm            *goja.Runtime
+	vm            *ja.Runtime
 	vmreq         *require.RequireModule
 	objmap        map[string]interface{}
 	DisposeObject func(string, interface{})
@@ -52,7 +52,7 @@ func NewVM(a ...interface{}) (vm *VM) {
 			}
 		}
 	}
-	vm = &VM{vm: goja.New(), W: w, R: r, objmap: map[string]interface{}{}}
+	vm = &VM{vm: ja.New(), W: w, R: r, objmap: map[string]interface{}{}}
 	vm.Set("console", map[string]interface{}{
 		"log": func(a ...interface{}) {
 			iorw.Fprintln(os.Stdout, a...)
@@ -68,7 +68,7 @@ func NewVM(a ...interface{}) (vm *VM) {
 	//vm.vm.RunProgram(typescript.TypeScriptProgram)
 	vm.vm.RunProgram(adhocPrgm)
 
-	var fldmppr = &fieldmapper{fldmppr: goja.UncapFieldNameMapper()}
+	var fldmppr = &fieldmapper{fldmppr: ja.UncapFieldNameMapper()}
 	vm.vm.SetFieldNameMapper(fldmppr)
 	for stngk, stngv := range stngs {
 		if stngv != nil {
@@ -157,7 +157,7 @@ func NewVM(a ...interface{}) (vm *VM) {
 }
 
 type fieldmapper struct {
-	fldmppr goja.FieldNameMapper
+	fldmppr ja.FieldNameMapper
 }
 
 // FieldName returns a JavaScript name for the given struct field in the given type.
@@ -235,21 +235,21 @@ func (vm *VM) Set(objname string, obj interface{}) {
 func (vm *VM) InvokeFunction(functocall interface{}, args ...interface{}) (result interface{}) {
 	if functocall != nil {
 		if vm != nil && vm.vm != nil {
-			var fnccallargs []goja.Value = nil
+			var fnccallargs []ja.Value = nil
 			var argsn = 0
 
 			for argsn < len(args) {
 				if fnccallargs == nil {
-					fnccallargs = make([]goja.Value, len(args))
+					fnccallargs = make([]ja.Value, len(args))
 				}
 				fnccallargs[argsn] = vm.vm.ToValue(args[argsn])
 				argsn++
 			}
-			if atvfunc, atvfuncok := functocall.(func(goja.FunctionCall) goja.Value); atvfuncok {
+			if atvfunc, atvfuncok := functocall.(func(ja.FunctionCall) ja.Value); atvfuncok {
 				if len(fnccallargs) == 0 || fnccallargs == nil {
-					fnccallargs = []goja.Value{}
+					fnccallargs = []ja.Value{}
 				}
-				var funccll = goja.FunctionCall{This: goja.Undefined(), Arguments: fnccallargs}
+				var funccll = ja.FunctionCall{This: ja.Undefined(), Arguments: fnccallargs}
 				if rsltval := atvfunc(funccll); rsltval != nil {
 					result = rsltval.Export()
 				}
@@ -346,13 +346,13 @@ var DefaultTransformCode func(code string) (transformedcode string, errors []str
 func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 	if vm != nil && vm.vm != nil {
 		var cdes = ""
-		var chdprgm *goja.Program = nil
+		var chdprgm *ja.Program = nil
 		var setchdprgm func(interface{})
 		var ai, ail = 0, len(a)
 
 		var errfound func(...interface{}) error = nil
 		for ai < ail {
-			if chdpgrmd, chdpgrmdok := a[ai].(*goja.Program); chdpgrmdok {
+			if chdpgrmd, chdpgrmdok := a[ai].(*ja.Program); chdpgrmdok {
 				if chdprgm == nil && chdpgrmd != nil {
 					chdprgm = chdpgrmd
 				}
@@ -375,7 +375,7 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 			}
 		}
 		if func() {
-			var psrdprgm = func() (p *goja.Program, perr error) {
+			var psrdprgm = func() (p *ja.Program, perr error) {
 				if chdprgm != nil {
 					p = chdprgm
 					return
@@ -385,7 +385,7 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 					defer cde.Close()
 					cdes, _ = cde.ReadAll()
 					if prsd, prsderr := parser.ParseFile(nil, "", cdes, 0); prsderr == nil {
-						if p, perr = goja.CompileAST(prsd, false); perr == nil && p != nil {
+						if p, perr = ja.CompileAST(prsd, false); perr == nil && p != nil {
 							if setchdprgm != nil {
 								setchdprgm(p)
 							}
@@ -489,7 +489,7 @@ func (vm *VM) Close() {
 
 var gobalMods *sync.Map
 
-var adhocPrgm *goja.Program = nil
+var adhocPrgm *ja.Program = nil
 
 var gojaregistry *require.Registry
 
@@ -502,8 +502,8 @@ func LoadGlobalModule(modname string, a ...interface{}) {
 		func() {
 			var cdebuf = iorw.NewBuffer()
 			defer cdebuf.Close()
-			if prgmast, _ := goja.Parse(modname, cdebuf.String()); prgmast != nil {
-				if prgm, _ := goja.CompileAST(prgmast, false); prgm != nil {
+			if prgmast, _ := ja.Parse(modname, cdebuf.String()); prgmast != nil {
+				if prgm, _ := ja.CompileAST(prgmast, false); prgm != nil {
 					gobalMods.Store(modname, prgm)
 				}
 			}
@@ -511,9 +511,9 @@ func LoadGlobalModule(modname string, a ...interface{}) {
 	}
 }
 
-func IncludeModule(vm *goja.Runtime, modname string) {
+func IncludeModule(vm *ja.Runtime, modname string) {
 	if prgv, ok := gobalMods.Load(modname); ok {
-		if prg, _ := prgv.(*goja.Program); prg != nil {
+		if prg, _ := prgv.(*ja.Program); prg != nil {
 			vm.RunProgram(prg)
 		}
 	}
@@ -529,7 +529,7 @@ func init() {
 		return
 	})
 
-	if adhocast, _ := goja.Parse(``, `_methods = (obj) => {
+	if adhocast, _ := ja.Parse(``, `_methods = (obj) => {
 		let properties = new Set()
 		let currentObj = obj
 		Object.entries(currentObj).forEach((key)=>{
@@ -564,7 +564,7 @@ func init() {
 		}
 		return [...properties.keys()].filter(item => item!=='__proto__' && typeof obj[item] !== 'function')
 	}`); adhocast != nil {
-		adhocPrgm, _ = goja.CompileAST(adhocast, false)
+		adhocPrgm, _ = ja.CompileAST(adhocast, false)
 	}
 
 }
