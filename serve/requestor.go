@@ -270,51 +270,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 				} else if prin != nil {
 					prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fstouse, invert, nil, nil, nil)
 				}
-				/*var suggestedroot = "/"
-
-				if fitouse != nil {
-					suggestedroot = fitouse.PathRoot()
-					if fitouse.IsDir() {
-						if strings.HasSuffix(evalroot, "/") {
-							for _, evlpth := range []string{"index.html", "index.js"} {
-								if fis := fs.LS(evalroot + evlpth); len(fis) == 1 {
-									prsevalerr = ParseEval(nvm.Eval, fis[0].Path(), ".js", fis[0].ModTime(), prsout, nil, fs, invert, fis[0], nil, nil)
-									return
-								}
-							}
-						}
-						return
-					}
-					prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fs, invert, fitouse, nil, nil)
-					return
-				}
-
-				if fis := fs.LS(evalroot + ".js"); len(fis) == 1 {
-					prsevalerr = ParseEval(nvm.Eval, fis[0].Path(), ".js", fis[0].ModTime(), prsout, nil, fs, invert, fis[0], nil, nil)
-				} else if len(fis) == 0 {
-					if evalroot != "" || (evalroot == "" && evalrt != nil) {
-						a = append([]interface{}{evalrt}, a...)
-					}
-					if prin == nil && len(a) > 0 {
-						func() {
-							defer prsevalbuf.Clear()
-							if prsevalbuf == nil {
-								prsevalbuf = iorw.NewBuffer()
-								prsevalbuf.Print(a...)
-							} else {
-								prsevalbuf.Clear()
-								prsevalbuf.Print(a...)
-							}
-							if prsevalbuf.Size() > 0 {
-								prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fs, invert, nil, nil, nil)
-							}
-						}()
-					} else {
-						if fitouse.PathRoot() != suggestedroot && fitouse.PathExt() != ".js" {
-							prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fs, invert, nil, nil, nil)
-						}
-					}
-				}*/
 				return prsevalerr
 			}
 
