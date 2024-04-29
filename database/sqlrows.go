@@ -39,7 +39,6 @@ func (datardr *DataReader) Close() (err error) {
 				datardr.colsep = nil
 				datardr.colTxtr = 0
 				datardr.rowsep = nil
-				//datardr.prerdr = nil
 			}
 
 			if datardr.cls != nil {
@@ -564,9 +563,9 @@ func (sqlrws *SqlRows) Data(cols ...string) (data []interface{}) {
 					data[mstcdcolsn] = sqlrws.data[mstcdcolsp]
 				}
 			}
-		} else {
-			data = sqlrws.data[:]
+			return
 		}
+		data = sqlrws.data[:]
 	}
 	return
 }
@@ -618,9 +617,9 @@ func (sqlrws *SqlRows) DisplayData(cols ...string) (displaydata []interface{}) {
 					displaydata[mstcdcolsn] = sqlrws.displaydata[mstcdcolsp]
 				}
 			}
-		} else {
-			displaydata = sqlrws.displaydata[:]
+			return
 		}
+		displaydata = sqlrws.displaydata[:]
 	}
 	return
 }
@@ -645,12 +644,12 @@ func (sqlrws *SqlRows) FieldIndex(name string) (index int) {
 		if clsimap := sqlrws.clsimap; clsimap != nil {
 			if cli, cliok := clsimap[name]; cliok {
 				index = cli
-			} else {
-				for c, ci := range clsimap {
-					if strings.EqualFold(name, c) {
-						index = ci
-						return
-					}
+				return
+			}
+			for c, ci := range clsimap {
+				if strings.EqualFold(name, c) {
+					index = ci
+					return
 				}
 			}
 		}
@@ -699,14 +698,20 @@ func (sqlrws *SqlRows) Scan(castTypeVal func(valToCast interface{}, colType inte
 					for cn, cltpe := range clstpes {
 						if castTypeVal == nil {
 							sqlrws.displaydata[cn] = castSQLTypeValue(sqlrws.data[cn], cltpe)
-						} else if sqlrws.displaydata[cn], dspok = castTypeVal(sqlrws.data[cn], cltpe); !dspok {
+							continue
+						}
+						if sqlrws.displaydata[cn], dspok = castTypeVal(sqlrws.data[cn], cltpe); !dspok {
 							sqlrws.displaydata[cn] = castSQLTypeValue(sqlrws.data[cn], cltpe)
 						}
 					}
-				} else if datardr != nil {
+					return
+				}
+				if datardr != nil {
 					copy(sqlrws.data, datardr.data)
 					copy(sqlrws.displaydata, datardr.data)
-				} else if strmrdr != nil {
+					return
+				}
+				if strmrdr != nil {
 					copy(sqlrws.data, strmrdr.data)
 					copy(sqlrws.displaydata, strmrdr.data)
 				}
@@ -972,13 +977,17 @@ func (sqlrws *SqlRows) Next() (next bool) {
 				next = false
 				sqlrws.cancelContext(sqlrws.lsterr)
 			}
-		} else if datardr != nil {
+			return
+		}
+		if datardr != nil {
 			next, sqlrws.lsterr = datardr.Next()
 			if sqlrws.lsterr != nil {
 				next = false
 				sqlrws.cancelContext(sqlrws.lsterr)
 			}
-		} else if strmrdr != nil {
+			return
+		}
+		if strmrdr != nil {
 			next, sqlrws.lsterr = strmrdr.Next()
 			if sqlrws.lsterr != nil {
 				next = false
@@ -986,7 +995,6 @@ func (sqlrws *SqlRows) Next() (next bool) {
 			}
 		}
 	}
-
 	return
 }
 

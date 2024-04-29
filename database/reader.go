@@ -63,31 +63,36 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 	var strmtype = func() streamType {
 		if strings.EqualFold(strmtpe, "csv") {
 			return csvStrm
-		} else if strings.EqualFold(strmtpe, "json") {
-			return jsonStrm
-		} else if strings.EqualFold(strmtpe, "xml") {
-			return xmlStrm
-		} else {
-			return csvStrm
 		}
+		if strings.EqualFold(strmtpe, "json") {
+			return jsonStrm
+		}
+		if strings.EqualFold(strmtpe, "xml") {
+			return xmlStrm
+		}
+		return csvStrm
 	}
 	var strmrdr *iorw.EOFCloseSeekReader = nil
 	if strmrdr, _ = strmrdrd.(*iorw.EOFCloseSeekReader); strmrdr == nil {
 		if rdr, _ := strmrdrd.(io.Reader); rdr != nil {
 			strmrdr = iorw.NewEOFCloseSeekReader(rdr, true)
-		} else if rdrs, _ := strmrdrd.(string); rdrs != "" {
+		}
+		if rdrs, _ := strmrdrd.(string); strmrdr == nil && rdrs != "" {
 			strmrdr = iorw.NewEOFCloseSeekReader(strings.NewReader(rdrs), true)
 		}
 	}
 	reader = &Reader{strmrdr: strmrdr, stmnt: stmnt, strmtpe: strmtype(), strmsttngs: strmsttngs /*, runtime: runtime /*, LOG: logger*/}
 	if onerror == nil {
 		reader.EventError = func(err error) {}
-	} else {
+	}
+	if onerror != nil {
 		if donerror, _ := onerror.(ErrorFunc); donerror != nil {
 			reader.EventError = donerror
-		} else if donerror, _ := onerror.(func(error)); donerror != nil {
+		}
+		if donerror, _ := onerror.(func(error)); reader.EventError == nil && donerror != nil {
 			reader.EventError = donerror
-		} else if runtime != nil && onerror != nil {
+		}
+		if runtime != nil && reader.EventError == nil {
 			reader.EventError = func(err error) {
 				runtime.InvokeFunction(onerror, err)
 			}
@@ -95,12 +100,15 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 	}
 	if onfinalize == nil {
 		reader.EventFinalize = func(*Reader) error { return nil }
-	} else {
+	}
+	if onfinalize != nil {
 		if donfinalize, _ := onfinalize.(ReaderFinalizeFunc); donfinalize != nil {
 			reader.EventFinalize = donfinalize
-		} else if donfinalize, _ := onfinalize.(func(*Reader) error); donfinalize != nil {
+		}
+		if donfinalize, _ := onfinalize.(func(*Reader) error); reader.EventFinalize == nil && donfinalize != nil {
 			reader.EventFinalize = donfinalize
-		} else if runtime != nil && onfinalize != nil {
+		}
+		if runtime != nil && reader.EventFinalize == nil {
 			reader.EventFinalize = func(rdr *Reader) (err error) {
 				runtime.InvokeFunction(onfinalize, rdr)
 				return
@@ -109,12 +117,15 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 	}
 	if oninit == nil {
 		reader.EventInit = func(*Reader) error { return nil }
-	} else {
+	}
+	if oninit != nil {
 		if doninit, _ := oninit.(ReaderInitFunc); doninit != nil {
 			reader.EventInit = doninit
-		} else if doninit, _ := oninit.(func(*Reader) error); doninit != nil {
+		}
+		if doninit, _ := oninit.(func(*Reader) error); reader.EventInit == nil && doninit != nil {
 			reader.EventInit = doninit
-		} else if runtime != nil && oninit != nil {
+		}
+		if runtime != nil && reader.EventInit == nil {
 			reader.EventInit = func(rdr *Reader) (err error) {
 				runtime.InvokeFunction(oninit, rdr)
 				return
@@ -137,12 +148,15 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 	}
 	if onprepdata == nil {
 		reader.EventPrepData = func(*Reader, func(...interface{})) error { return nil }
-	} else {
+	}
+	if onprepdata != nil {
 		if donprepdata, _ := onprepdata.(PrepDataFunc); donprepdata != nil {
 			reader.EventPrepData = donprepdata
-		} else if donprepdata, _ := onprepdata.(func(*Reader, func(...interface{})) error); donprepdata != nil {
+		}
+		if donprepdata, _ := onprepdata.(func(*Reader, func(...interface{})) error); reader.EventPrepData == nil && donprepdata != nil {
 			reader.EventPrepData = donprepdata
-		} else if runtime != nil && onprepdata != nil {
+		}
+		if runtime != nil && reader.EventPrepData != nil {
 			reader.EventPrepData = func(rdr *Reader, prepData func(...interface{})) (err error) {
 				runtime.InvokeFunction(onprepdata, rdr, prepData)
 				return
@@ -153,25 +167,30 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 		reader.EventNext = func(rdr *Reader) (cannext bool, err error) {
 			return err == nil, err
 		}
-	} else {
+	}
+	if onnext != nil {
 		if donnext, _ := onnext.(RowNextFunc); donnext != nil {
 			reader.EventNext = func(rdr *Reader) (cannext bool, err error) {
 				cannext, err = donnext(rdr)
 
 				return cannext, err
 			}
-		} else if donnext, _ := onnext.(func(*Reader) (bool, error)); donnext != nil {
+		}
+		if donnext, _ := onnext.(func(*Reader) (bool, error)); reader.EventNext == nil && donnext != nil {
 			reader.EventNext = func(rdr *Reader) (cannext bool, err error) {
 				cannext, err = donnext(rdr)
 				return cannext, err
 			}
-		} else if runtime != nil && onnext != nil {
+		}
+		if runtime != nil && reader.EventNext == nil {
 			reader.EventNext = func(rdr *Reader) (cannext bool, err error) {
 				if err = rdr.rows.Scan(rdr.CastTypeValue); err == nil {
 					invkresult := runtime.InvokeFunction(onnext, rdr)
 					if cannextdb, ignrerrok := invkresult.(bool); ignrerrok {
 						cannext = cannextdb
-					} else if ignrerre, _ := invkresult.(error); ignrerre != nil {
+						return
+					}
+					if ignrerre, _ := invkresult.(error); ignrerre != nil {
 						err = ignrerre
 					}
 				}
@@ -183,23 +202,28 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 		reader.EventSelect = func(rdr *Reader) (selected bool, err error) {
 			return err == nil, err
 		}
-	} else {
+	}
+	if onselect != nil {
 		if donselect, _ := onselect.(RowSelectFunc); donselect != nil {
 			reader.EventSelect = func(rdr *Reader) (selected bool, err error) {
 				selected, err = donselect(rdr)
 				return
 			}
-		} else if donselect, _ := onselect.(func(*Reader) (bool, error)); donselect != nil {
+		}
+		if donselect, _ := onselect.(func(*Reader) (bool, error)); reader.EventSelect == nil && donselect != nil {
 			reader.EventSelect = func(rdr *Reader) (selected bool, err error) {
 				selected, err = donselect(rdr)
 				return
 			}
-		} else if runtime != nil && onselect != nil {
+		}
+		if runtime != nil && reader.EventSelect == nil {
 			reader.EventSelect = func(rdr *Reader) (selected bool, err error) {
 				invkresult := runtime.InvokeFunction(onselect, rdr)
 				if selectedb, ignrerrok := invkresult.(bool); ignrerrok {
 					selected = selectedb
-				} else if ignrerre, _ := invkresult.(error); ignrerre != nil {
+					return
+				}
+				if ignrerre, _ := invkresult.(error); ignrerre != nil {
 					err = ignrerre
 				}
 				return
@@ -211,18 +235,21 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 			processReaderExecutors(rdr)
 			return nil
 		}
-	} else {
+	}
+	if onrow != nil {
 		if donrow, _ := onrow.(RowFunc); donrow != nil {
 			reader.EventRow = func(rdr *Reader) error {
 				processReaderExecutors(rdr)
 				return donrow(rdr)
 			}
-		} else if donrow, _ := onrow.(func(*Reader) error); donrow != nil {
+		}
+		if donrow, _ := onrow.(func(*Reader) error); reader.EventRow == nil && donrow != nil {
 			reader.EventRow = func(rdr *Reader) error {
 				processReaderExecutors(rdr)
 				return donrow(rdr)
 			}
-		} else if runtime != nil && onrow != nil {
+		}
+		if runtime != nil && reader.EventRow == nil {
 			reader.EventRow = func(rdr *Reader) (err error) {
 				processReaderExecutors(rdr)
 				if invkresult := runtime.InvokeFunction(onrow, reader); invkresult != nil {
@@ -236,17 +263,22 @@ func NewReader(strmrdrd interface{}, strmtpe string, strmsttngs map[string]inter
 	}
 	if onrowerror == nil {
 		reader.EventRowError = func(err error, r *Reader) (bool, error) { return false, nil }
-	} else {
+	}
+	if onrowerror != nil {
 		if donrowerror, _ := onrowerror.(RowErrorFunc); donrowerror != nil {
 			reader.EventRowError = donrowerror
-		} else if donrowerror, _ := onrowerror.(func(error, *Reader) (bool, error)); donrowerror != nil {
+		}
+		if donrowerror, _ := onrowerror.(func(error, *Reader) (bool, error)); reader.EventRowError == nil && donrowerror != nil {
 			reader.EventRowError = donrowerror
-		} else if runtime != nil && onrowerror != nil {
+		}
+		if runtime != nil && reader.EventRowError != nil {
 			reader.EventRowError = func(rdrerr error, rdr *Reader) (ignrerr bool, err error) {
 				if invkresult := runtime.InvokeFunction(onrowerror, rdrerr, rdr); invkresult != nil {
 					if ignrerrb, ignrerrok := invkresult.(bool); ignrerrok {
 						ignrerr = ignrerrb
-					} else if ignrerre, _ := invkresult.(error); ignrerre != nil {
+						return
+					}
+					if ignrerre, _ := invkresult.(error); ignrerre != nil {
 						err = ignrerre
 					}
 				}
@@ -396,9 +428,9 @@ func (rdr *Reader) NextReader() (nxtrdr *Reader) {
 	if rdr != nil {
 		if nxtrdrsl, nextreaders := len(rdr.nextreaders), rdr.nextreaders; nxtrdrsl > 0 {
 			nxtrdr = nextreaders[nxtrdrsl-1]
-		} else {
-			nxtrdr = rdr
+			return
 		}
+		nxtrdr = rdr
 	}
 	return
 }
@@ -445,9 +477,9 @@ func (rdr *Reader) CSVReader(a ...interface{}) (eofr *iorw.EOFCloseSeekReader) {
 			defer func() {
 				if pwerr != nil {
 					pw.CloseWithError(pwerr)
-				} else {
-					pw.Close()
+					return
 				}
+				pw.Close()
 			}()
 			ctxcnl()
 			pwerr = rdr.ToCSV(pw, a...)
@@ -467,9 +499,9 @@ func (rdr *Reader) JSONReader(layout string, cols ...string) (eofr *iorw.EOFClos
 			defer func() {
 				if pwerr != nil {
 					pw.CloseWithError(pwerr)
-				} else {
-					pw.Close()
+					return
 				}
+				pw.Close()
 			}()
 			ctxcnl()
 			pwerr = rdr.ToJSON(pw, layout, cols...)
@@ -548,7 +580,9 @@ func (rdr *Reader) ToJSON(w io.Writer, layout string, cols ...string) (err error
 				if _, err = w.Write([]byte("}")); err != nil {
 					return
 				}
-			} else if strings.EqualFold(layout, "dataset") {
+				return
+			}
+			if strings.EqualFold(layout, "dataset") {
 				if _, err = w.Write([]byte("{")); err != nil {
 					return
 				}
@@ -593,7 +627,9 @@ func (rdr *Reader) ToJSON(w io.Writer, layout string, cols ...string) (err error
 				if _, err = w.Write([]byte("}")); err != nil {
 					return
 				}
-			} else if strings.EqualFold(layout, "array") {
+				return
+			}
+			if strings.EqualFold(layout, "array") {
 				if _, err = w.Write([]byte("[")); err != nil {
 					return
 				}
@@ -616,46 +652,46 @@ func (rdr *Reader) ToJSON(w io.Writer, layout string, cols ...string) (err error
 				if _, err = w.Write([]byte("]")); err != nil {
 					return
 				}
-			} else {
-				if _, err = w.Write([]byte("[")); err != nil {
-					return
-				}
-				for nxt, nxterr := rdr.Next(); nxt && nxterr == nil; nxt, nxterr = rdr.Next() {
-					if data := rdr.Data(cols...); len(data) == len(cols) {
-						if _, err = w.Write([]byte("{")); err != nil {
+				return
+			}
+			if _, err = w.Write([]byte("[")); err != nil {
+				return
+			}
+			for nxt, nxterr := rdr.Next(); nxt && nxterr == nil; nxt, nxterr = rdr.Next() {
+				if data := rdr.Data(cols...); len(data) == len(cols) {
+					if _, err = w.Write([]byte("{")); err != nil {
+						return
+					}
+					for cn, c := range cols {
+
+						if err = wrtenc(c); err != nil {
 							return
 						}
-						for cn, c := range cols {
-
-							if err = wrtenc(c); err != nil {
-								return
-							}
-							if _, err = w.Write([]byte(":")); err != nil {
-								return
-							}
-							if err = wrtenc(data[cn]); err != nil {
-								return
-							}
-
-							if cn < len(cols)-1 {
-								if _, err = w.Write([]byte(",")); err != nil {
-									return
-								}
-							}
-						}
-						if _, err = w.Write([]byte("}")); err != nil {
+						if _, err = w.Write([]byte(":")); err != nil {
 							return
+						}
+						if err = wrtenc(data[cn]); err != nil {
+							return
+						}
+
+						if cn < len(cols)-1 {
+							if _, err = w.Write([]byte(",")); err != nil {
+								return
+							}
 						}
 					}
-					if !rdr.IsFirst() {
-						if _, err = w.Write([]byte(",")); err != nil {
-							return
-						}
+					if _, err = w.Write([]byte("}")); err != nil {
+						return
 					}
 				}
-				if _, err = w.Write([]byte("]")); err != nil {
-					return
+				if !rdr.IsFirst() {
+					if _, err = w.Write([]byte(",")); err != nil {
+						return
+					}
 				}
+			}
+			if _, err = w.Write([]byte("]")); err != nil {
+				return
 			}
 		}
 	}
@@ -751,7 +787,8 @@ func (rdr *Reader) ForEachData(eachitem func([]interface{}, int64, bool, bool) b
 			for err == nil {
 				if nxt, err = rdr.Next(); nxt && err == nil && !eachdone {
 					continue
-				} else if !nxt || eachdone {
+				}
+				if !nxt || eachdone {
 					break
 				}
 			}
@@ -777,7 +814,8 @@ func (rdr *Reader) ForEachDataMap(eachitem func(map[string]interface{}, int64, b
 			for err == nil {
 				if nxt, err = rdr.Next(); nxt && err == nil && !eachdone {
 					continue
-				} else if !nxt || eachdone {
+				}
+				if !nxt || eachdone {
 					break
 				}
 			}
@@ -801,7 +839,8 @@ func (rdr *Reader) ForEachDataMapSet(eachitem func([]map[string]interface{}, int
 			for err == nil {
 				if nxt, err = rdr.Next(); nxt && err == nil && !eachdone {
 					continue
-				} else if !nxt || eachdone {
+				}
+				if !nxt || eachdone {
 					break
 				}
 			}
@@ -824,14 +863,20 @@ func (rdr *Reader) ToCSV(w io.Writer, a ...interface{}) (err error) {
 					if mvs, _ := mv.(string); mvs != "" {
 						if strings.EqualFold("col-sep", mk) {
 							colsep = mvs
-						} else if strings.EqualFold("row-sep", mk) {
+							continue
+						}
+						if strings.EqualFold("row-sep", mk) {
 							rowsep = mvs
-						} else if strings.EqualFold("headers", mk) {
+							continue
+						}
+						if strings.EqualFold("headers", mk) {
 							if strings.EqualFold(mvs, "true") || strings.EqualFold(mvs, "false") {
 								incldhdrs = strings.EqualFold(mvs, "true")
 							}
 						}
-					} else if mvb, mvbok := mv.(bool); mvbok {
+						continue
+					}
+					if mvb, mvbok := mv.(bool); mvbok {
 						if strings.EqualFold("headers", mk) {
 							incldhdrs = mvb
 						}
@@ -1127,29 +1172,37 @@ func castSQLTypeValue(valToCast interface{}, colType *ColumnType) (castedVal int
 	if valToCast != nil {
 		if d, dok := valToCast.([]uint8); dok {
 			castedVal = cleanupStringData(string(d))
-		} else if sd, dok := valToCast.(string); dok {
+			return
+		}
+		if sd, dok := valToCast.(string); dok {
 			castedVal = cleanupStringData(sd)
-		} else if dtime, dok := valToCast.(time.Time); dok {
+			return
+		}
+		if dtime, dok := valToCast.(time.Time); dok {
 			castedVal = dtime.Format("2006-01-02T15:04:05")
-		} else if djsn, djsnok := valToCast.([]byte); djsnok {
+			return
+		}
+		if djsn, djsnok := valToCast.([]byte); djsnok {
 			if dv, dverr := json.Marshal(djsn); dverr == nil {
 				castedVal = dv
-			} else {
-				castedVal = djsn
+				return
 			}
-		} else {
-			castedVal = valToCast
+			castedVal = djsn
+			return
 		}
-	} else {
-		if strings.Contains(strings.ToLower(colType.databaseType), "char") {
-			castedVal = ""
-		} else if strings.Contains(strings.ToLower(colType.databaseType), "int") {
-			castedVal = ""
-		} else {
-			castedVal = valToCast
-		}
+		castedVal = valToCast
+		return
 	}
-	return castedVal
+	if strings.Contains(strings.ToLower(colType.databaseType), "char") {
+		castedVal = ""
+		return
+	}
+	if strings.Contains(strings.ToLower(colType.databaseType), "int") {
+		castedVal = ""
+		return
+	}
+	castedVal = valToCast
+	return
 }
 
 func processReaderExecutors(rdr *Reader) {
@@ -1173,14 +1226,9 @@ func (rdr *Reader) Next() (next bool, err error) {
 			if err = rdr.Prep(); err != nil {
 				return
 			}
-			if rows = rdr.rows; rows == nil {
-				return
-			}
+			rows = rdr.rows
 		}
-
-		if stmnt := rdr.stmnt; stmnt != nil && rdr.stmnt.isRemote {
-
-		} else if rows != nil {
+		if rows != nil {
 			if stmnt := rdr.stmnt; stmnt != nil {
 				if ctx := stmnt.ctx; rdr.rows != nil {
 					select {
@@ -1216,70 +1264,66 @@ func (rdr *Reader) Next() (next bool, err error) {
 							rdr.first = true
 							if next, err = rdr.EventNext(rdr); next && err == nil {
 								if selected, err = rdr.EventSelect(rdr); err == nil {
-									if next, err = rows.Next(), rows.Err(); !next && err == nil {
-										rdr.last = true
+									if next, err = rows.Next(), rows.Err(); err == nil {
+										rdr.last = !next
 										next = true
-									} else if err == nil {
-										rdr.last = false
-										next = true
-									}
-									if next && err == nil && selected {
-										if err = rdr.EventRow(rdr); err != nil {
-											next = false
+										if selected {
+											if err = rdr.EventRow(rdr); err != nil {
+												next = false
+												rdr.callFinalise()
+											}
+											break
 										}
-										break
 									}
-								} else if err == nil {
-									rdr.callFinalise()
-									break
 								}
-							} else if next && err != nil {
+								continue
+							}
+							if next && err != nil {
 								next = false
+								rdr.callFinalise()
 								break
 							}
-						} else {
-							next = false
+							continue
 						}
-					} else {
 						next = false
+						rdr.callFinalise()
 						break
 					}
-				} else if !rdr.last {
+					next = false
+					rdr.callFinalise()
+					break
+				}
+				if !rdr.last {
 					if err = rows.Scan(rdr.CastTypeValue); err == nil {
 						rdr.RowNr++
 						if next, err = rdr.EventNext(rdr); next && err == nil {
 							rdr.first = false
 							if selected, err = rdr.EventSelect(rdr); err == nil {
-								if next, err = rows.Next(), rows.Err(); !next && err == nil {
-									rdr.last = true
-									if next = true; err == nil {
-										if selected {
-											if err = rdr.EventRow(rdr); err != nil {
-												next = false
-											}
-										}
-										break
-									}
-								} else {
-									rdr.last = false
-									if next && err == nil && selected {
+								if next, err = rows.Next(), rows.Err(); err == nil {
+									rdr.last = !next
+									next = true
+									if selected {
 										if err = rdr.EventRow(rdr); err != nil {
 											next = false
+											rdr.callFinalise()
 										}
 										break
 									}
 								}
-							} else if err == nil {
-								rdr.callFinalise()
-								break
 							}
-						} else if next && err != nil {
+							continue
+						}
+						if next && err != nil {
+							rdr.callFinalise()
 							next = false
 						}
-					} else {
-						next = false
+						break
 					}
-				} else if rdr.last {
+					next = false
+					rdr.callFinalise()
+					break
+				}
+				if rdr.last {
 					rdr.callFinalise()
 					break
 				}

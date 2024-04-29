@@ -39,12 +39,15 @@ func NewExecutor(stmnt *Statement, prepOnly bool, oninit interface{}, onexec int
 		exectr.eventerror = func(err error) {
 
 		}
-	} else {
+	}
+	if onerror != nil {
 		if donerror, _ := onerror.(ErrorFunc); donerror != nil {
 			exectr.eventerror = donerror
-		} else if donerror, _ := onerror.(func(error)); donerror != nil {
+		}
+		if donerror, _ := onerror.(func(error)); donerror != nil {
 			exectr.eventerror = donerror
-		} else if runtime != nil {
+		}
+		if runtime != nil {
 			exectr.eventerror = func(err error) {
 				exectr.runtime.InvokeFunction(exectr.onerror, err)
 			}
@@ -66,12 +69,15 @@ func NewExecutor(stmnt *Statement, prepOnly bool, oninit interface{}, onexec int
 	}
 	if oninit == nil {
 		exectr.eventinit = func(*Executor) error { return nil }
-	} else {
+	}
+	if oninit != nil {
 		if doninit, _ := oninit.(ExecutorInitFunc); doninit != nil {
 			exectr.eventinit = doninit
-		} else if doninit, _ := oninit.(func(*Executor) error); doninit != nil {
+		}
+		if doninit, _ := oninit.(func(*Executor) error); doninit != nil {
 			exectr.eventinit = doninit
-		} else if runtime != nil {
+		}
+		if exectr.eventinit == nil && runtime != nil {
 			exectr.eventinit = func(exctr *Executor) (err error) {
 				exectr.runtime.InvokeFunction(exectr.oninit, exctr)
 				return
@@ -80,12 +86,15 @@ func NewExecutor(stmnt *Statement, prepOnly bool, oninit interface{}, onexec int
 	}
 	if onexec == nil {
 		exectr.eventexec = func(*Executor, int64, int64) error { return nil }
-	} else {
+	}
+	if onexec != nil {
 		if donexec, _ := onexec.(ExecFunc); donexec != nil {
 			exectr.eventexec = donexec
-		} else if donexec, _ := onexec.(func(*Executor, int64, int64) error); donexec != nil {
+		}
+		if donexec, _ := onexec.(func(*Executor, int64, int64) error); donexec != nil {
 			exectr.eventexec = donexec
-		} else if runtime != nil {
+		}
+		if exectr.eventexec != nil && runtime != nil {
 			exectr.eventexec = func(exctr *Executor, lastRowId int64, rowsAffected int64) (err error) {
 				if invkresult := exectr.runtime.InvokeFunction(exectr.onexec, exctr, lastRowId, rowsAffected); invkresult != nil {
 
@@ -96,17 +105,22 @@ func NewExecutor(stmnt *Statement, prepOnly bool, oninit interface{}, onexec int
 	}
 	if onexecerror == nil {
 		exectr.eventexecerror = func(err error, exctr *Executor) (bool, error) { return false, nil }
-	} else {
+	}
+	if onexecerror != nil {
 		if donexecerror, _ := onexecerror.(ExecErrorFunc); donexecerror != nil {
 			exectr.eventexecerror = donexecerror
-		} else if donexecerror, _ := onexecerror.(func(error, *Executor) (bool, error)); donexecerror != nil {
+		}
+		if donexecerror, _ := onexecerror.(func(error, *Executor) (bool, error)); donexecerror != nil {
 			exectr.eventexecerror = donexecerror
-		} else if runtime != nil {
+		}
+		if exectr.eventexecerror == nil && runtime != nil {
 			exectr.eventexecerror = func(execerr error, exctr *Executor) (ignrerr bool, err error) {
 				if invkresult := exectr.runtime.InvokeFunction(exectr.onexecerror, execerr, exctr); invkresult != nil {
 					if ignrerrb, ignrerrok := invkresult.(bool); ignrerrok {
 						ignrerr = ignrerrb
-					} else if ignrerre, _ := invkresult.(error); ignrerre != nil {
+						return
+					}
+					if ignrerre, _ := invkresult.(error); ignrerre != nil {
 						err = ignrerre
 					}
 				}
@@ -153,7 +167,9 @@ func (exectr *Executor) Exec() (err error) {
 		if cn := exectr.stmnt.cn; cn != nil {
 			if cn.isRemote() {
 
-			} else if prepstmnt := exectr.stmnt.prepstmnt; prepstmnt != nil && !exectr.prpOnly {
+				return
+			}
+			if prepstmnt := exectr.stmnt.prepstmnt; prepstmnt != nil && !exectr.prpOnly {
 				if exectr.sqlresult, err = prepstmnt.Exec(exectr.stmnt.Arguments()...); err == nil {
 					exectr.lastRowInserted, _ = exectr.sqlresult.LastInsertId()
 					exectr.rowsAffected, err = exectr.sqlresult.RowsAffected()
