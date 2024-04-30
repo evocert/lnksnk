@@ -880,11 +880,14 @@ func IndexOfRunes(runes []rune, subrunes ...rune) int {
 	if lnrns, lnsubrns := len(runes), len(subrunes); lnrns >= lnsubrns {
 		srn := 0
 		for rn, r := range runes {
-			if sr := subrunes[srn]; sr == r {
+			if subrunes[srn] == r {
 				srn++
 				if srn == lnsubrns {
 					return rn - (srn - 1)
 				}
+				continue
+			}
+			if srn > 0 && subrunes[srn-1] == r {
 				continue
 			}
 			srn = 0
