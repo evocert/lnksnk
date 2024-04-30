@@ -149,6 +149,10 @@ func prepContentElemReader(ctntelm *contentelem) {
 			pathroot = "/"
 		}
 		path = path[len(pathroot):]
+		root := pathroot
+		if root[0:1] == "/" && root[len(root)-1:] == "/" && root != "/" {
+			root = root[:strings.LastIndex(root[:len(root)-1], "/")+1]
+		}
 		if strings.HasSuffix(ctntelm.elemname, ":") {
 			path = ""
 		}
@@ -204,7 +208,7 @@ func prepContentElemReader(ctntelm *contentelem) {
 				}
 			}
 		}
-		tmplts = append(tmplts, "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
+		tmplts = append(tmplts, "<:_:pathroot:/>", pathroot, "<:_:root:/>", root, "<:_:elemroot:/>", func() (elmroot string) {
 			if path == "" {
 				if strings.HasSuffix(pathroot, "/") {
 					if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
@@ -268,9 +272,7 @@ func internalProcessParsing(
 	evalcode func(...interface{}) (interface{}, error),
 	rnrdrs ...io.RuneReader) (prsngerr error) {
 	fullpath := pathroot + path
-
 	validelempaths := map[string]time.Time{}
-
 	var chdpsvbuf *iorw.Buffer = nil
 
 	cdelblrns := [][]rune{[]rune("<@"), []rune("@>")}
@@ -645,7 +647,11 @@ func internalProcessParsing(
 		return
 	}
 
-	ctntrdr := iorw.NewRuneReaderSlice(iorw.NewReplaceRuneReader(iorw.NewRuneReaderSlice(rnrdrs...), "<:_:pathroot:/>", pathroot, "<:_:elemroot:/>", func() (elmroot string) {
+	root := pathroot
+	if root[0:1] == "/" && root[len(root)-1:] == "/" && root != "/" {
+		root = root[:strings.LastIndex(root[:len(root)-1], "/")+1]
+	}
+	ctntrdr := iorw.NewRuneReaderSlice(iorw.NewReplaceRuneReader(iorw.NewRuneReaderSlice(rnrdrs...), "<:_:pathroot:/>", pathroot, "<:_:root:/>", root, "<:_:elemroot:/>", func() (elmroot string) {
 		if path == "" {
 			if strings.HasSuffix(pathroot, "/") {
 				if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
