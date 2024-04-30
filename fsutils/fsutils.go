@@ -237,6 +237,7 @@ type FileInfo interface {
 	Path() string         // relative path of the file
 	PathExt() string      //relative path extension of the file
 	PathRoot() string     // relative path root of the file
+	Root() string         // relative path root of the file
 	AbsolutePath() string // absolute path of the file
 	Size() int64          // length in bytes for regular files; system-dependent for others
 	Mode() os.FileMode    // file mode bits
@@ -303,6 +304,16 @@ func (finfo *fileInfo) PathRoot() string {
 		if pthsep := strings.LastIndex(finfo.path, "/"); pthsep > -1 {
 			return finfo.path[:pthsep+1]
 		}
+	}
+	return ""
+}
+
+func (finfo *fileInfo) Root() string {
+	if finfo != nil {
+		if pthsep, pthlstsep := strings.Index(finfo.path, "/"), strings.LastIndex(finfo.path, "/"); pthsep > -1 && pthlstsep > pthsep {
+			return finfo.path[:strings.Index(finfo.path[:pthlstsep], "/")+1]
+		}
+		return finfo.PathRoot()
 	}
 	return ""
 }
