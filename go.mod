@@ -43,6 +43,9 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/tdewolff/minify/v2 v2.20.20 // indirect
+	github.com/tdewolff/parse v2.3.4+incompatible // indirect
+	github.com/tdewolff/parse/v2 v2.7.13 // indirect
 	go.uber.org/mock v0.4.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f // indirect
@@ -64,6 +67,7 @@ require (
 	github.com/microsoft/go-mssqldb v1.7.1
 	github.com/pkg/errors v0.9.1
 	github.com/sijms/go-ora/v2 v2.8.14
+	github.com/tdewolff/minify v2.3.6+incompatible
 	golang.org/x/text v0.14.0
 	modernc.org/sqlite v1.29.8
 )

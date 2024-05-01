@@ -22,6 +22,7 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 	"github.com/evocert/lnksnk/iorw/active"
 	"github.com/evocert/lnksnk/iorw/parsing"
+	_ "github.com/evocert/lnksnk/iorw/parsing/minify"
 	"github.com/evocert/lnksnk/mimes"
 	"github.com/evocert/lnksnk/parameters"
 	"github.com/evocert/lnksnk/resources"

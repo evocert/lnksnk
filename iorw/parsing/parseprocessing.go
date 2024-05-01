@@ -272,6 +272,7 @@ func internalProcessParsing(
 	evalcode func(...interface{}) (interface{}, error),
 	rnrdrs ...io.RuneReader) (prsngerr error) {
 	fullpath := pathroot + path
+	invalidelempaths := map[string]bool{}
 	validelempaths := map[string]time.Time{}
 	var chdpsvbuf *iorw.Buffer = nil
 
@@ -651,7 +652,7 @@ func internalProcessParsing(
 	if root[0:1] == "/" && root[len(root)-1:] == "/" && root != "/" {
 		root = root[:strings.LastIndex(root[:len(root)-1], "/")+1]
 	}
-	ctntrdr := iorw.NewRuneReaderSlice(iorw.NewReplaceRuneReader(iorw.NewRuneReaderSlice(rnrdrs...), "<:_:pathroot:/>", pathroot, "<:_:root:/>", root, "<:_:elemroot:/>", func() (elmroot string) {
+	var mainrunerdr io.RuneReader = iorw.NewReplaceRuneReader(iorw.NewRuneReaderSlice(rnrdrs...), "<:_:pathroot:/>", pathroot, "<:_:root:/>", root, "<:_:elemroot:/>", func() (elmroot string) {
 		if path == "" {
 			if strings.HasSuffix(pathroot, "/") {
 				if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
@@ -670,7 +671,8 @@ func internalProcessParsing(
 			elmroot = ""
 		}
 		return
-	}()))
+	}())
+	ctntrdr := iorw.NewRuneReaderSlice(mainrunerdr)
 	defer ctntrdr.Close()
 	dneprsng := false
 	ctntlblrns := [][]rune{[]rune("<"), []rune(">")}
@@ -954,6 +956,12 @@ func internalProcessParsing(
 									}
 									return elempath + elemname
 								}()
+								if invalidelempaths[fullelemname] {
+									ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
+									ctntprvr = 0
+									prserr = flushctntrmng()
+									return
+								}
 								if ctntelmlvl == ctntElemStart || ctntelmlvl == ctntElemSingle {
 									testpath := strings.Replace(fullelemname, ":", "/", -1)
 									testext := filepath.Ext(testpath)
@@ -979,6 +987,7 @@ func internalProcessParsing(
 										}
 										return nil
 									}(); fi == nil {
+										invalidelempaths[fullelemname] = true
 										ctntrmngbuf.WriteRunes(ctntflushInvalid(true, prelbl, postlbl, lbli)...)
 										ctntprvr = 0
 										prserr = flushctntrmng()
@@ -1120,6 +1129,9 @@ func internalProcessParsing(
 			cdeflushatv()
 			var chdpgrm interface{} = nil
 			if !cdebuf.Empty() {
+				if DefaultMinifyCde != nil {
+					DefaultMinifyCde(".js", cdebuf, nil)
+				}
 				if evalcode != nil {
 					_, prsngerr = evalcode(cdebuf.Reader(), func(prgm interface{}) {
 						chdpgrm = prgm
@@ -1136,11 +1148,6 @@ func internalProcessParsing(
 
 	return
 }
-
-/*var validElmRunes = map[rune]int{'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1, 'G': 1, 'H': 1, 'I': 1, 'J': 1, 'K': 1, 'L': 1, 'M': 1, 'N': 1, 'O': 1, 'P': 1, 'Q': 1, 'R': 1, 'S': 1, 'T': 1, 'U': 1, 'V': 1, 'W': 1, 'X': 1, 'Y': 1, 'Z': 1,
-'a': 1, 'b': 1, 'c': 1, 'd': 1, 'e': 1, 'f': 1, 'g': 1, 'h': 1, 'i': 1, 'j': 1, 'k': 1, 'l': 1, 'm': 1, 'n': 1, 'o': 1, 'p': 1, 'q': 1, 'r': 1, 's': 1, 't': 1, 'u': 1, 'v': 1, 'w': 1, 'x': 1, 'y': 1, 'z': 1,
-'0': 1, '1': 1, '2': 1, '3': 1, '4': 1, '5': 1, '6': 1, '7': 1, '8': 1, '9': 1,
-':': 1, '-': 1, '_': 1, '.': 1}*/
 
 func validElmchar(cr rune) bool {
 	return ('a' <= cr && cr <= 'z') || ('A' <= cr && cr <= 'Z') || cr == ':' || cr == '.' || cr == '-' || cr == '_' || ('0' <= cr && cr <= '9')
