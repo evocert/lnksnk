@@ -132,7 +132,7 @@ func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Co
 	} else if strings.Contains(network, "quic") {
 		if len(tlsconf) > 0 {
 			server := http3.Server{
-				Handler:    handler,
+				Handler:    h2c.NewHandler(handler, &http2.Server{}),
 				Addr:       addr,
 				TLSConfig:  http3.ConfigureTLSConfig(tlsconf[0].Clone()), // use your tls.Config here
 				QUICConfig: &quic.Config{},
@@ -144,12 +144,6 @@ func Serve(network string, addr string, handler http.Handler, tlsconf ...*tls.Co
 }
 
 var DefaultHandler http.Handler = nil
-
-var httpsrv = &http.Server{Handler: h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	if DefaultHandler != nil {
-		DefaultHandler.ServeHTTP(w, r)
-	}
-}), &http2.Server{})}
 
 func init() {
 	go func() {
