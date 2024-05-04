@@ -822,7 +822,8 @@ func (rscngmngr *ResourcingManager) RegisterEndpoint(path string, rootpath strin
 		}
 
 		if rootpath == "./" {
-			execpath := "./" //os.Args[0]
+			execpath := strings.Replace(os.Args[0], "\\", "/", -1)
+			execpath = execpath[:strings.LastIndex(execpath, "/")+1]
 			if fis, _ := fsutils.FIND(execpath); len(fis) > 0 && !fis[0].IsDir() {
 				rootpath = strings.Replace(fis[0].AbsolutePath(), "\\", "/", -1)
 				rootpath = rootpath[:strings.LastIndex(rootpath, "/")+1]
