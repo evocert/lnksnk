@@ -1249,8 +1249,8 @@ func parseObject(c *parseContext, i int, path string) (int, bool) {
 }
 
 // matchLimit will limit the complexity of the match operation to avoid ReDos
-// attacks from arbritary inputs.
-// See the github.com/tidwall/match.MatchLimit function for more information.
+// attacks from arbitrary inputs.
+// See the MatchLimit function for more information.
 func matchLimit(str, pattern string) bool {
 	matched, _ := MatchLimit(str, pattern, 10000)
 	return matched
@@ -1923,6 +1923,10 @@ func AppendJSONString(dst []byte, s string) []byte {
 		if s[i] < ' ' {
 			dst = append(dst, '\\')
 			switch s[i] {
+			case '\b':
+				dst = append(dst, 'b')
+			case '\f':
+				dst = append(dst, 'f')
 			case '\n':
 				dst = append(dst, 'n')
 			case '\r':
@@ -2187,7 +2191,7 @@ func unescape(json string) string {
 }
 
 // Less return true if a token is less than another token.
-// The caseSensitive paramater is used when the tokens are Strings.
+// The caseSensitive parameter is used when the tokens are Strings.
 // The order when comparing two different type is:
 //
 //	Null < False < Number < String < True < JSON
@@ -3346,7 +3350,7 @@ func (t Result) Path(json string) string {
 		goto fail
 	}
 	if !strings.HasPrefix(json[t.Index:], t.Raw) {
-		// Result is not at the JSON index as exepcted.
+		// Result is not at the JSON index as expected.
 		goto fail
 	}
 	for ; i >= 0; i-- {
