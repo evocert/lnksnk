@@ -385,7 +385,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 			fnmodified(fi.ModTime())
 		}
 	}
-	if strings.Contains(path, "/db/") || strings.Contains(path, "/db-") {
+	if strings.Contains(path, "/db:") {
 		dbserve.ServeRequest(Out, In, dbhnlr, path, params, fs)
 		return
 	}

@@ -79,12 +79,18 @@ func ServeRequest(w serveio.Writer, r serveio.Reader, a ...interface{}) {
 		dbhndl = database.GLOBALDBMS().DBMSHandler(ctx, runtime, params, nil, fs, callPrepStatement)
 	}
 	if dbhndl != nil {
-		if strings.Contains(path, "/db/") || strings.Contains(path, "/db-") {
+		if strings.Contains(path, "/db:") {
 			pathext := filepath.Ext(path)
 			if pathext == "" {
 				pathext = ".json"
 			}
-			if path = path[strings.Index(path, "/db")+len("/db"):]; path != "" && validdbrequestexts[pathext] {
+			if path = path[strings.Index(path, "/db:")+len("/db:"):]; path != "" && validdbrequestexts[pathext] {
+				pthsepi := strings.Index(path, "/")
+
+				if pthsepi == -1 {
+					pthsepi = len(path)
+				}
+				rmndrpath := path[pthsepi:]
 				if w != nil {
 					if pathext == ".json" {
 						w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -93,42 +99,115 @@ func ServeRequest(w serveio.Writer, r serveio.Reader, a ...interface{}) {
 						w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 					}
 				}
-				if pthsepi := strings.Index(path, "/"); path[0:1] == "-" && pthsepi == -1 {
-					if path = path[1:]; validdbcommands[path] {
-						if path == "commands" {
-							cmds := []string{}
-							for cmd := range validdbcommands {
-								if cmd == "commands" {
-									continue
-								}
-								cmds = append(cmds, cmd)
-							}
-							enc := json.NewEncoder(w)
-							enc.Encode(cmds)
-							return
-						}
-						if path == "connections" {
-							enc := json.NewEncoder(w)
-							enc.Encode(dbhndl.Connections())
-							return
-						}
-						if path == "drivers" {
-							enc := json.NewEncoder(w)
-							enc.Encode(dbhndl.Drivers())
-							return
-						}
+
+				if cmdhndlr := validdbcommands[path]; cmdhndlr != nil {
+					if err := cmdhndlr.ExecuteCmd(rmndrpath, pathext, dbhndl, w, r, fs); err != nil {
+						enc := json.NewEncoder(w)
+						enc.Encode(map[string]interface{}{"err": err.Error()})
 					}
 					return
 				}
-				if pthi := strings.Index(path, "/"); pthi > 2 {
-					if path = path[pthi+1:]; path != "" {
-
+				if rmndrpath != "" && dbhndl.Exists(path) {
+					if pathext != "" && strings.HasSuffix(rmndrpath, pathext) {
+						rmndrpath = rmndrpath[:len(rmndrpath)-len(pathext)]
 					}
+					rmngpthi := strings.Index(rmndrpath, "/")
+					if rmngpthi == -1 {
+						rmngpthi = len(rmndrpath)
+					}
+					if rmndrpath = rmndrpath[:rmngpthi]; rmndrpath != "" {
+						if aliascmd := validdbaliascommands[rmndrpath]; aliascmd != nil {
+							if err := aliascmd.ExecuteCmd(path, rmndrpath, pathext, dbhndl, w, r, fs); err != nil {
+
+							}
+						}
+					}
+
 				}
 			}
 		}
 	}
 }
 
+type HandlerAliasCommand interface {
+	ExecuteCmd(string, string, string, *database.DBMSHandler, serveio.Writer, serveio.Reader, *fsutils.FSUtils) error
+}
+
+type AliasCommandFunc func(alias, path string, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error)
+
+func (aliascmdfunc AliasCommandFunc) ExecuteCmd(alias, cmdpath, cmdpathext string, dbhndl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) error {
+	return aliascmdfunc(alias, cmdpath, cmdpathext, dbhndl, w, r, fs)
+}
+
+type HandlerCommand interface {
+	ExecuteCmd(string, string, *database.DBMSHandler, serveio.Writer, serveio.Reader, *fsutils.FSUtils) error
+}
+
+type CommandFunc func(path string, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error)
+
+func (cmdfunc CommandFunc) ExecuteCmd(cmdpath, cmdpathext string, dbhndl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) error {
+	return cmdfunc(cmdpath, cmdpathext, dbhndl, w, r, fs)
+}
+
 var validdbrequestexts = map[string]bool{".js": true, ".json": true}
-var validdbcommands = map[string]bool{"connections": true, "drivers": true, "commands": true}
+var validdbcommands = map[string]HandlerCommand{"connections": cmdconnections,
+	"drivers":    cmddrivers,
+	"register":   cmdregister,
+	"unregister": cmdregister,
+	"connection": cmdconnection,
+	"driver":     cmddriver,
+	"commands":   cmdcommands}
+
+var validdbaliascommands = map[string]HandlerAliasCommand{
+	"query":  aliascmdquery,
+	"exec":   aliascmdexec,
+	"status": aliascmdstatus}
+
+var cmdcommands CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+	return
+}
+
+var cmdconnections CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+	encd := json.NewEncoder(w)
+	err = encd.Encode(dbhnl.Connections())
+	return
+}
+
+var cmdconnection CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+	return
+}
+
+var cmddrivers CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+	encd := json.NewEncoder(w)
+	err = encd.Encode(dbhnl.Drivers())
+	return
+}
+
+var cmddriver CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+
+	return
+}
+
+var cmdregister CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+
+	return
+}
+
+var cmdunregister CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+	return
+}
+
+var aliascmdquery AliasCommandFunc = func(alias, path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+
+	return
+}
+
+var aliascmdexec AliasCommandFunc = func(alias, path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+
+	return
+}
+
+var aliascmdstatus AliasCommandFunc = func(alias, path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
+
+	return
+}
