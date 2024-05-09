@@ -107,6 +107,21 @@ func (dbmshndlr *DBMSHandler) Connections() (cns []string) {
 	}
 	return
 }
+
+func (dbmshndlr *DBMSHandler) Drivers() (drvrs []string) {
+	if dbmshndlr != nil {
+		if dbms := dbmshndlr.dbms; dbms != nil {
+			if drivers := dbms.drivers; drivers != nil {
+				drivers.Range(func(key, value any) bool {
+					drvrs = append(drvrs, key.(string))
+					return true
+				})
+			}
+		}
+	}
+	return
+}
+
 func (dbmshndlr *DBMSHandler) Dispose() {
 	if dbmshndlr != nil {
 		if dbmshndlr.runtime != nil {
