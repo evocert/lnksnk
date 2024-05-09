@@ -1,4 +1,4 @@
-package serve
+package serveio
 
 import (
 	"bufio"
@@ -8,13 +8,22 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 )
 
+type Writer interface {
+	io.WriteCloser
+	WriteHeader(int)
+	Flush() error
+	Header() http.Header
+	Print(...interface{}) error
+	Println(...interface{}) error
+}
+
 type writer struct {
 	httpw  http.ResponseWriter
 	buff   *bufio.Writer
 	Status int
 }
 
-func newWriter(httpw http.ResponseWriter) (rqw *writer) {
+func NewWriter(httpw http.ResponseWriter) (rqw *writer) {
 	rqw = &writer{httpw: httpw, Status: 200}
 	return
 }
@@ -40,6 +49,14 @@ func (rqw *writer) Header() http.Header {
 		}
 	}
 	return nil
+}
+
+func (rqw *writer) WriteHeader(status int) {
+	if rqw != nil {
+		if rqw.httpw != nil {
+			rqw.httpw.WriteHeader(status)
+		}
+	}
 }
 
 func (rqw *writer) Flush() (err error) {

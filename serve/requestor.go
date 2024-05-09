@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/evocert/lnksnk/concurrent"
 	"github.com/evocert/lnksnk/database"
+	"github.com/evocert/lnksnk/database/dbserve"
 	"github.com/evocert/lnksnk/email/emailing"
 	"github.com/evocert/lnksnk/fsutils"
 	"github.com/evocert/lnksnk/iorw"
@@ -27,6 +29,7 @@ import (
 	"github.com/evocert/lnksnk/parameters"
 	"github.com/evocert/lnksnk/resources"
 	"github.com/evocert/lnksnk/scheduling"
+	"github.com/evocert/lnksnk/serve/serveio"
 	"github.com/evocert/lnksnk/stdio/command"
 	"github.com/evocert/lnksnk/ws"
 )
@@ -56,11 +59,11 @@ func ProcessRequesterConn(conn net.Conn, activemap map[string]interface{}) {
 }
 
 func ServeHTTPRequest(w http.ResponseWriter, r *http.Request) {
-	ProcessRequest("", r, w, nil)
+	ProcessRequest(r.URL.Path, r, w, nil)
 }
 
 func ProcessRequestPath(path string, activemap map[string]interface{}) {
-	internalServeRequest(path, nil, nil, nil, nil, fs, activemap)
+	internalServeRequest(path, nil, nil, fs, activemap)
 }
 
 func ProcessRequest(path string, httprqst *http.Request, httprspns http.ResponseWriter, activemap map[string]interface{}) {
@@ -69,7 +72,7 @@ func ProcessRequest(path string, httprqst *http.Request, httprspns http.Response
 
 			return
 		}
-		internalServeRequest("", newReader(httprqst), newWriter(httprspns), httprspns, httprqst, fs, activemap)
+		internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap)
 	}
 }
 
@@ -89,49 +92,62 @@ func ParseEval(evalcode func(a ...interface{}) (val interface{}, err error), pat
 	return
 }
 
-func internalServeRequest(path string, In *reader, Out *writer, httpw http.ResponseWriter, httpr *http.Request, fs *fsutils.FSUtils, activemap map[string]interface{}, a ...interface{}) (err error) {
+func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs *fsutils.FSUtils, activemap map[string]interface{}, a ...interface{}) (err error) {
+	//defer gc()
 	params := parameters.NewParameters()
 	defer params.CleanupParameters()
 	var ctx context.Context = nil
-	if httpr != nil {
-		ctx = httpr.Context()
-		parameters.LoadParametersFromHTTPRequest(params, httpr)
+	if In != nil {
+		ctx = In.Context()
+		parameters.LoadParametersFromHTTPRequest(params, In.HttpR())
 		if path == "" {
-			path = httpr.URL.Path
+			path = In.Path()
 		}
 	} else {
 		if path != "" {
 			path = strings.Replace(path, "\\", "/", -1)
 		}
+
+	}
+	if strings.Contains(path, "?") {
 		parameters.LoadParametersFromRawURL(params, path)
 	}
 
-	defer In.Close()
-	defer Out.Close()
+	if In != nil {
+		defer In.Close()
+	}
+	if Out != nil {
+		defer Out.Close()
+	}
 
 	var prsevalbuf *iorw.Buffer = nil
-	defer prsevalbuf.Close()
+	if prsevalbuf != nil {
+		defer prsevalbuf.Close()
+	}
 	var terminal *terminals = nil
-	defer terminal.Close()
-
+	if terminal != nil {
+		defer terminal.Close()
+	}
 	var fi fsutils.FileInfo = nil
 
 	var dbclsrs = newdbclosers()
 	defer dbclsrs.Close()
 	var vm *active.VM = nil
+	var invokevm func() *active.VM
 	var dbhnlr *database.DBMSHandler = DBMS.DBMSHandler(ctx, active.RuntimeFunc(func(functocall interface{}, args ...interface{}) interface{} {
-		return vm.InvokeFunction(functocall, args...)
+		return invokevm().InvokeFunction(functocall, args...)
 	}), params, CHACHING, fs, func(ina ...interface{}) (a []interface{}) {
-		if vm != nil && len(ina) == 1 {
+		if len(ina) == 1 {
 			if fia, _ := ina[0].(fsutils.FileInfo); fia != nil {
+				dbvm := invokevm()
 				stmntoutbuf := iorw.NewBuffer()
 				defer stmntoutbuf.Close()
-				vmw := vm.W
+				vmw := dbvm.W
 				vm.W = stmntoutbuf
-				if evalerr := ParseEval(vm.Eval, fia.Path(), fia.PathExt(), fia.ModTime(), stmntoutbuf, nil, fs, false, fia, nil, nil); evalerr == nil {
+				if evalerr := ParseEval(dbvm.Eval, fia.Path(), fia.PathExt(), fia.ModTime(), stmntoutbuf, nil, fs, false, fia, nil, nil); evalerr == nil {
 					a = append(a, stmntoutbuf.Clone(true).Reader(true))
 				}
-				vm.W = vmw
+				dbvm.W = vmw
 			}
 		} else {
 			a = append(a, ina...)
@@ -139,7 +155,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		return
 	})
 	defer dbhnlr.Dispose()
-	invokevm := func() *active.VM {
+	invokevm = func() *active.VM {
 		if vm != nil {
 			return vm
 		}
@@ -281,67 +297,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			nvm.Set("caching", CHACHING)
 			nvm.Set("cchng", CHACHING)
 			nvm.Set("db", dbhnlr)
-			nvm.Set("dbqry", func(alias string, a ...interface{}) (reader *database.Reader) {
-				a = append([]interface{}{nvm}, a...)
-
-				if params != nil {
-					a = append(a, params)
-				}
-				if fs != nil {
-					a = append(a, fs)
-				}
-				if reader = DBMS.Query(alias, a...); reader != nil {
-					reader.EventClose = func(r *database.Reader) {
-						dbclsrs.clsrs.Delete(r)
-					}
-					dbclsrs.clsrs.Store(reader, reader)
-				}
-				return
-			})
-
-			nvm.Set("dbexec", func(alias string, a ...interface{}) (exectr *database.Executor) {
-				a = append([]interface{}{nvm}, a...)
-
-				if params != nil {
-					a = append(a, params)
-				}
-				if fs != nil {
-					a = append(a, fs)
-				}
-				if exectr = DBMS.Execute(alias, a...); exectr != nil {
-					exectr.EventClose = func(ex *database.Executor) {
-						dbclsrs.clsrs.Delete(ex)
-					}
-					dbclsrs.clsrs.Store(exectr, exectr)
-				}
-				return
-			})
-
-			nvm.Set("dbreg", func(alias string, driver string, datasource string, a ...interface{}) bool {
-				return DBMS.Register(alias, driver, datasource, a...)
-			})
-
-			nvm.Set("dbunreg", func(alias string, a ...interface{}) bool {
-				return DBMS.Unregister(alias, a...)
-			})
-
-			nvm.Set("dbprep", func(alias string, a ...interface{}) (exectr *database.Executor) {
-				a = append([]interface{}{nvm}, a...)
-
-				if params != nil {
-					a = append(a, params)
-				}
-				if fs != nil {
-					a = append(a, fs)
-				}
-				if exectr = DBMS.Prepair(alias, a...); exectr != nil {
-					exectr.EventClose = func(ex *database.Executor) {
-						dbclsrs.clsrs.Delete(ex)
-					}
-					dbclsrs.clsrs.Store(exectr, exectr)
-				}
-				return
-			})
 
 			nvm.Set("email", EMAILING.ActiveEmailManager(nvm, func() parameters.ParametersAPI {
 				return params
@@ -362,7 +317,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 				"fileName":  params.FileName,
 			}
 
-			nvm.Set("param", vmparam)
+			nvm.Set("_params", vmparam)
 			nvm.Set("_in", In)
 			nvm.Set("_out", Out)
 			nvm.R = In
@@ -372,13 +327,23 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 		}()
 		return vm
 	}
-	var rangeOffset = In.RangeOffset()
-	var rangeType = In.RangeType()
-	defer func() {
-		if vm != nil {
-			chnvms <- vm
+	var rangeOffset = func() int64 {
+		if In != nil {
+			return In.RangeOffset()
 		}
+		return 0
 	}()
+	var rangeType = func() string {
+		if In != nil {
+			return In.RangeType()
+		}
+		return ""
+	}()
+	if vm != nil {
+		defer func() {
+			chnvms <- vm
+		}()
+	}
 
 	var pathext = filepath.Ext(path)
 	var pathmodified time.Time = time.Now()
@@ -420,6 +385,10 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 			fnmodified(fi.ModTime())
 		}
 	}
+	if strings.Contains(path, "/db/") || strings.Contains(path, "/db-") {
+		dbserve.ServeRequest(Out, In, dbhnlr, path, params, fs)
+		return
+	}
 	if fi == nil && pathext == "" && strings.HasSuffix(path, "/") {
 		for _, psblexts := range []string{".html", ".js"} {
 			isactive = true
@@ -439,6 +408,9 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 	if istexttype || strings.Contains(mimetipe, "text/plain") {
 		mimetipe += "; charset=utf-8"
 	}
+	if Out != nil {
+		Out.Header().Set("Content-Type", mimetipe)
+	}
 	if fi != nil {
 		if pathext != "" {
 
@@ -450,9 +422,7 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 					}
 				}
 			}
-			if Out != nil {
-				Out.Header().Set("Content-Type", mimetipe)
-			}
+
 			if !isactive && convertactive {
 				isactive = true
 			}
@@ -499,8 +469,8 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 											Out.Header().Set("Content-Length", fmt.Sprintf("%d", maxlen))
 										}
 										eofrs.SetMaxRead(maxlen)
-										if httpw != nil {
-											httpw.WriteHeader(206)
+										if Out != nil {
+											Out.WriteHeader(206)
 										}
 									} else {
 										if Out != nil {
@@ -537,10 +507,6 @@ func internalServeRequest(path string, In *reader, Out *writer, httpw http.Respo
 					}
 				}
 			}
-		}
-	} else {
-		if Out != nil {
-			Out.Header().Set("Content-Type", mimetipe)
 		}
 	}
 	return
@@ -696,4 +662,14 @@ func init() {
 			go func(term *terminals) { term.Close() }(termref)
 		}
 	}()
+}
+
+var buzygc = false
+
+func gc() {
+	if !buzygc {
+		buzygc = true
+		runtime.GC()
+		defer func() { buzygc = false }()
+	}
 }
