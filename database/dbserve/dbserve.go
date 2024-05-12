@@ -135,8 +135,8 @@ func ServeRequest(prefix string, w serveio.Writer, r serveio.Reader, a ...interf
 					subrmng := ""
 					subrmngi := strings.Index(rmndrpath, "/")
 					if subrmngi > -1 {
+						subrmng = rmndrpath[subrmngi:]
 						rmndrpath = rmndrpath[:subrmngi]
-						subrmng = rmndrpath[subrmngi+1:]
 					}
 					if rmndrpath != "" {
 						if aliascmdv, aliascmdvok := aliascmnds.Load(rmndrpath); aliascmdvok {
