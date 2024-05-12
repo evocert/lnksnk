@@ -28,11 +28,43 @@ type DBMSHandler struct {
 	CallPrepStatement StatementHandlerFunc
 }
 
+func (dbmshndlr *DBMSHandler) Params() (prms parameters.ParametersAPI) {
+	if dbmshndlr != nil {
+		prms = dbmshndlr.prms
+	}
+	return
+}
+
 func (dbmshndlr *DBMSHandler) Exists(alias string) (exists bool) {
 	if dbmshndlr != nil && alias != "" {
 		if dbms := dbmshndlr.dbms; dbms != nil {
 			if cnctns := dbms.cnctns; cnctns != nil {
 				_, exists = cnctns.Load(alias)
+			}
+		}
+	}
+	return
+}
+
+func (dbmshndlr *DBMSHandler) Status(alias string) (status map[string]interface{}, err error) {
+	if dbmshndlr != nil {
+		if dbms := dbmshndlr.dbms; dbms != nil {
+			if cnctns := dbms.cnctns; cnctns != nil {
+				if cnv, _ := cnctns.Load(alias); cnv != nil {
+					if cn, _ := cnv.(*Connection); cn != nil {
+						dbstats, dbstatserr := cn.Status()
+						if dbstatserr != nil {
+							err = dbstatserr
+							return
+						}
+						if status == nil {
+							status = map[string]interface{}{}
+						}
+						status["idle"] = dbstats.Idle
+						status["inuse"] = dbstats.InUse
+						status["open"] = dbstats.OpenConnections
+					}
+				}
 			}
 		}
 	}
