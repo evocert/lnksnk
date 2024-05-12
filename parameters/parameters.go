@@ -29,11 +29,13 @@ type ParametersAPI interface {
 	FileSize(string, ...int) []int64
 	FileParameter(string, ...int) []interface{}
 	CleanupParameters()
+	Type(string) string
 }
 
 // Parameters -> structure containing parameters
 type Parameters struct {
 	phrases        []string
+	urlkeys        *sync.Map
 	standard       *sync.Map //map[string][]string
 	standardcount  int
 	filesdata      *sync.Map //map[string][]interface{}
@@ -115,12 +117,20 @@ func (params *Parameters) FileKeys() (keys []string) {
 // pvalue : value of strings to add
 // clear : clear existing value of parameter
 func (params *Parameters) SetParameter(pname string, clear bool, pvalue ...string) {
+	storeParameter(params, false, pname, clear, pvalue...)
+}
+
+func storeParameter(params *Parameters, isurl bool, pname string, clear bool, pvalue ...string) {
 	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname == "" {
 		return
 	}
 
 	if params != nil {
-		standard := params.standard
+		standard, urlkeys := params.standard, params.urlkeys
+		if urlkeys == nil {
+			urlkeys = &sync.Map{}
+			params.urlkeys = urlkeys
+		}
 		if standard == nil {
 			standard = &sync.Map{} // make(map[string][]string)
 			params.standard = standard
@@ -129,14 +139,17 @@ func (params *Parameters) SetParameter(pname string, clear bool, pvalue ...strin
 			if clear {
 				standard.Swap(pname, []string{})
 				val, _ = standard.Load(pname)
+				urlkeys.LoadAndDelete(pname)
 			}
 			var valsarr, _ = val.([]string)
 			if len(pvalue) > 0 {
 				valsarr = append(valsarr, pvalue...)
+				urlkeys.Store(pname, isurl)
 			}
 			params.standard.Swap(pname, valsarr)
 		} else {
 			if len(pvalue) > 0 {
+				urlkeys.Store(pname, isurl)
 				params.standard.Store(pname, pvalue[:])
 				params.standardcount++
 			} else {
@@ -161,16 +174,40 @@ func (params *Parameters) ContainsParameter(pname string) bool {
 	return ok
 }
 
+// Type -> check if parameter was loaded as a url/standard parameter
+// pname : name
+func (params *Parameters) Type(pname string) string {
+	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname == "" {
+		return ""
+	}
+	standard, urlkeys := params.standard, params.urlkeys
+	if urlkeys == nil && standard == nil {
+		return ""
+	}
+	if isurlv, ok := urlkeys.Load(pname); ok {
+		if ok, _ = isurlv.(bool); ok {
+			return "url"
+		}
+	}
+	if _, ok := standard.Load(pname); ok {
+		return "std"
+	}
+	return ""
+}
+
 // RemoveParameter  -> remove parameter and return any slice of string value
 func (params *Parameters) RemoveParameter(pname string) (value []string) {
 	if pname = strings.ToUpper(strings.TrimSpace(pname)); pname == "" {
 		return
 	}
-	standard := params.standard
+	standard, urlkeys := params.standard, params.urlkeys
 	if standard == nil {
 		return
 	}
 	if stdval, ok := standard.LoadAndDelete(pname); ok {
+		if urlkeys != nil {
+			urlkeys.LoadAndDelete(pname)
+		}
 		params.standardcount--
 		value, _ = stdval.([]string)
 	}
@@ -449,10 +486,14 @@ func (params *Parameters) FileParameter(pname string, index ...int) []interface{
 
 // CleanupParameters function that can be called to assist in cleaning up instance of Parameter container
 func (params *Parameters) CleanupParameters() {
-	if standard := params.standard; standard != nil {
+	if standard, urlkeys := params.standard, params.urlkeys; standard != nil {
 		params.standard = nil
+		params.urlkeys = nil
 		params.standardcount = 0
 		standard.Range(func(key, value any) bool {
+			if urlkeys != nil {
+				urlkeys.LoadAndDelete(key)
+			}
 			_, delok := standard.LoadAndDelete(key)
 			return !delok
 		})
@@ -486,6 +527,7 @@ func NewParameters() *Parameters {
 func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 	if params != nil && rawURL != "" {
 		if rawURL != "" {
+			rawURL = strings.Replace(rawURL, ";", "%3b", -1)
 			var phrases = []string{}
 			var rawUrls = strings.Split(rawURL, "&")
 			rawURL = ""
@@ -505,7 +547,7 @@ func LoadParametersFromRawURL(params ParametersAPI, rawURL string) {
 			if urlvals, e := url.ParseQuery(rawURL); e == nil {
 				if len(urlvals) > 0 {
 					for pname, pvalue := range urlvals {
-						params.SetParameter(pname, false, pvalue...)
+						storeParameter(params.(*Parameters), true, pname, false, pvalue...)
 					}
 				}
 			}
