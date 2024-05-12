@@ -62,18 +62,20 @@ func ServeHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	ProcessRequest(r.URL.Path, r, w, nil)
 }
 
-func ProcessRequestPath(path string, activemap map[string]interface{}) {
-	internalServeRequest(path, nil, nil, fs, activemap)
+func ProcessRequestPath(path string, activemap map[string]interface{}) (err error) {
+	err = internalServeRequest(path, nil, nil, fs, activemap)
+	return
 }
 
-func ProcessRequest(path string, httprqst *http.Request, httprspns http.ResponseWriter, activemap map[string]interface{}) {
+func ProcessRequest(path string, httprqst *http.Request, httprspns http.ResponseWriter, activemap map[string]interface{}) (err error) {
 	if httprqst != nil && httprspns != nil {
 		if ws, wserr := ws.NewServerReaderWriter(httprspns, httprqst); wserr == nil && ws != nil {
 
 			return
 		}
-		internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap)
+		err = internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap)
 	}
+	return
 }
 
 var fs = resources.GLOBALRSNG().FS()
@@ -385,8 +387,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 			fnmodified(fi.ModTime())
 		}
 	}
-	if strings.Contains(path, "/db:") {
-		dbserve.ServeRequest(Out, In, dbhnlr, path, params, fs)
+	if fndapi, dbapierr := dbserve.ServeRequest("/db:", Out, In, path, dbhnlr, params, fs); fndapi || dbapierr != nil {
 		return
 	}
 	if fi == nil && pathext == "" && strings.HasSuffix(path, "/") {
