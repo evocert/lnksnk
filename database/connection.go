@@ -79,3 +79,13 @@ func (cn *Connection) DbInvoke() (db *sql.DB, dberr error) {
 	}
 	return
 }
+
+func (cn *Connection) Status() (status sql.DBStats, err error) {
+	if cn != nil {
+		var db *sql.DB = nil
+		if db, err = cn.DbInvoke(); err == nil {
+			status = db.Stats()
+		}
+	}
+	return
+}
