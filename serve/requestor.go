@@ -310,6 +310,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 			var vmparam = map[string]interface{}{
 				"set":       params.SetParameter,
 				"get":       params.Parameter,
+				"type":      params.Type,
 				"exist":     params.ContainsParameter,
 				"fileExist": params.ContainsFileParameter,
 				"setFile":   params.SetFileParameter,
