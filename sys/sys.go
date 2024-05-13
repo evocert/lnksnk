@@ -16,9 +16,7 @@ import (
 	_ "github.com/evocert/lnksnk/database/postgres"
 	_ "github.com/evocert/lnksnk/fonts"
 	"github.com/evocert/lnksnk/sys/app"
-	_ "github.com/evocert/lnksnk/sys/app"
 	"github.com/evocert/lnksnk/sys/srv"
-	_ "github.com/evocert/lnksnk/sys/srv"
 	_ "github.com/evocert/lnksnk/ui"
 )
 
