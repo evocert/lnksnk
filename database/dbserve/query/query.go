@@ -16,6 +16,8 @@ var aliascmdquery dbserve.AliasCommandFunc = func(alias, path, ext string, dbhnl
 	var qryarr []interface{} = nil
 	var layout = ""
 	var cols []string = nil
+	var errorsfnd []interface{} = nil
+	var warnings []interface{} = nil
 	if httpr := r.HttpR(); httpr != nil {
 		if cnttype := httpr.Header.Get("Content-Type"); strings.Contains(cnttype, "application/json") {
 			if bdy := httpr.Body; bdy != nil {
@@ -101,11 +103,23 @@ var aliascmdquery dbserve.AliasCommandFunc = func(alias, path, ext string, dbhnl
 		})
 		var rec = dbhnl.Query(alias, qryarr...)
 		if rec != nil && errfound == nil {
-			rec.ToJSON(w, layout, cols...)
+			err = rec.ToJSON(w, layout, cols...)
+			return
 		}
 		if errfound != nil {
-
-			return
+			err = errfound
+			errorsfnd = append(errorsfnd, err.Error())
+		}
+		if len(errorsfnd) > 0 || len(warnings) > 0 {
+			mp := map[string]interface{}{}
+			if len(errorsfnd) > 0 {
+				mp["err"] = errorsfnd
+			}
+			if len(warnings) > 0 {
+				mp["warn"] = warnings
+			}
+			enc := json.NewEncoder(w)
+			err = enc.Encode(mp)
 		}
 	}
 	return
