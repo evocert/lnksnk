@@ -754,9 +754,7 @@ func (dbms *DBMS) Query(alias string, a ...interface{}) (reader *Reader) {
 								}
 							} else {
 								defer stmnt.Close()
-								if onerror != nil && runtime != nil {
-									runtime.InvokeFunction(onerror, err)
-								}
+								invokeErrorEvent(onerror, err, runtime)
 							}
 						}
 					}
@@ -876,16 +874,12 @@ func (dbms *DBMS) Execute(alias string, a ...interface{}) (exectr *Executor) {
 							if err := stmnt.Prepair(prms, rdr, args, a...); err == nil {
 								if exectr = NewExecutor(stmnt, false, oninit, onexec, onexecerror, onerror, onfinalize, runtime /*, logger*/); exectr != nil {
 									if err = exectr.Exec(); err != nil {
-										if onerror != nil && runtime != nil {
-											runtime.InvokeFunction(onerror, err)
-										}
 										exectr.Close()
+										invokeErrorEvent(onerror, err, runtime)
 									}
 								}
 							} else {
-								if onerror != nil && runtime != nil {
-									runtime.InvokeFunction(onerror, err)
-								}
+								invokeErrorEvent(onerror, err, runtime)
 							}
 						}
 					}
@@ -894,6 +888,18 @@ func (dbms *DBMS) Execute(alias string, a ...interface{}) (exectr *Executor) {
 		}
 	}
 	return
+}
+
+func invokeErrorEvent(event interface{}, err error, runtime active.Runtime) {
+	if err != nil && event != nil {
+		if eventd, _ := event.(func(error)); eventd != nil {
+			eventd(err)
+			return
+		}
+		if runtime != nil {
+			runtime.InvokeFunction(event, err)
+		}
+	}
 }
 
 func (dbms *DBMS) Prepair(alias string, a ...interface{}) (exectr *Executor) {
@@ -1006,17 +1012,13 @@ func (dbms *DBMS) Prepair(alias string, a ...interface{}) (exectr *Executor) {
 								if exectr = NewExecutor(stmnt, true, oninit, onexec, onexecerror, onerror, onfinalize, runtime /*, logger*/); exectr != nil {
 									if err = exectr.Exec(); err != nil {
 										defer exectr.Close()
-										if onerror != nil && runtime != nil {
-											runtime.InvokeFunction(onerror, err)
-										}
+										invokeErrorEvent(onerror, err, runtime)
 									} else {
 										exectr.prpOnly = false
 									}
 								}
 							} else {
-								if onerror != nil && runtime != nil {
-									runtime.InvokeFunction(onerror, err)
-								}
+								invokeErrorEvent(onerror, err, runtime)
 							}
 						}
 					}
