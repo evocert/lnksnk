@@ -101,6 +101,25 @@ function buildFormData(){
     frmargs.forEach((elm)=>{
         if(elm!==undefined&&elm!==null){
             if (typeof elm==="string" && elm!=="") {
+                document.querySelectorAll(elm+" select").forEach((inputelm)=>{
+                    var inname="";
+                    if((inname=inputelm.getAttribute("name")!==null&&inputelm.getAttribute("name")!==""?inputelm.getAttribute("name"):"")!==""){
+                        if (inputelm instanceof HTMLSelectElement) {
+                            var optns=inputelm.options;
+                            if(optns!==undefined&&optns!==null) {
+                                for(var seli=optns.selectedIndex;seli<optns.length;seli++){
+                                    var optn=optns.item(seli);
+                                    if (optn!==null && optn.selected){
+                                        if(crntfrmdata===null){
+                                            crntfrmdata=new FormData();
+                                        }
+                                        crntfrmdata.append(inname,optn.value);
+                                    }
+                                }                            
+                            }
+                        }
+                    }
+                });
                 document.querySelectorAll(elm+" input").forEach((inputelm)=>{
                     var inname="";
                     if((inname=inputelm.getAttribute("name")!==null&&inputelm.getAttribute("name")!==""?inputelm.getAttribute("name"):"")!==""){
@@ -149,6 +168,25 @@ function buildFormData(){
                     }
                 });
             } else if (elm instanceof HTMLElement){
+                elm.querySelectorAll("select").forEach((inputelm)=>{
+                    var inname="";
+                    if((inname=inputelm.getAttribute("name")!==null&&inputelm.getAttribute("name")!==""?inputelm.getAttribute("name"):"")!==""){
+                        if (inputelm instanceof HTMLSelectElement) {
+                            var optns=inputelm.options;
+                            if(optns!==undefined&&optns!==null) {
+                                for(var seli=optns.selectedIndex;seli<optns.length;seli++){
+                                    var optn=optns.item(seli);
+                                    if (optn!==null && optn.selected){
+                                        if(crntfrmdata===null){
+                                            crntfrmdata=new FormData();
+                                        }
+                                        crntfrmdata.append(inname,optn.value);
+                                    }
+                                }                            
+                            }
+                        }
+                    }
+                });
                 elm.querySelectorAll("input").forEach((inputelm)=>{
                     var inname="";
                     if((inname=inputelm.getAttribute("name")!==null&&inputelm.getAttribute("name")!==""?inputelm.getAttribute("name"):"")!==""){
