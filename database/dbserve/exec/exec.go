@@ -13,6 +13,7 @@ import (
 
 var aliascmdexec dbserve.AliasCommandFunc = func(alias, path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {
 	var qryarr []interface{} = nil
+	var errorsfnd []interface{} = nil
 	if httpr := r.HttpR(); httpr != nil {
 		if cnttype := httpr.Header.Get("Content-Type"); strings.Contains(cnttype, "application/json") {
 			if bdy := httpr.Body; bdy != nil {
@@ -73,8 +74,9 @@ var aliascmdexec dbserve.AliasCommandFunc = func(alias, path, ext string, dbhnl 
 			return
 		}
 		if errfound != nil {
+			errorsfnd = append(errorsfnd, errfound.Error())
 			enc := json.NewEncoder(w)
-			err = enc.Encode(map[string]interface{}{"err": errfound.Error()})
+			err = enc.Encode(map[string]interface{}{"err": errorsfnd})
 			return
 		}
 	}
