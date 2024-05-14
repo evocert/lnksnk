@@ -113,7 +113,10 @@ function buildFormData(){
                                         if(crntfrmdata===null){
                                             crntfrmdata=new FormData();
                                         }
-                                        crntfrmdata.append(inname,optn.value);
+                                        var optv=optn.getAttribute("value");
+                                        if(optv!==null) {
+                                            crntfrmdata.append(inname,optv);
+                                        }
                                     }
                                 }                            
                             }
@@ -180,7 +183,10 @@ function buildFormData(){
                                         if(crntfrmdata===null){
                                             crntfrmdata=new FormData();
                                         }
-                                        crntfrmdata.append(inname,optn.value);
+                                        var optv=optn.getAttribute("value");
+                                        if(optv!==null) {
+                                            crntfrmdata.append(inname,optv);
+                                        }
                                     }
                                 }                            
                             }
