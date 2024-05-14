@@ -636,7 +636,7 @@ func internalHasSuffixBytes(buff *Buffer, testbts []byte, offsets ...int64) (iss
 // Clone - return *Buffer clone
 func (buff *Buffer) Clone(clear ...bool) (clnbf *Buffer) {
 	clnbf = NewBuffer()
-	if buff.Size() > 0 {
+	if !buff.Empty() {
 		if bfl := len(buff.buffer); bfl > 0 {
 			if clnbf.buffer == nil {
 				clnbf.buffer = [][]byte{}
@@ -762,11 +762,14 @@ func (buff *Buffer) String() (s string) {
 
 // Empty - true if Buffer content is empty
 func (buff *Buffer) Empty() bool {
-	return buff == nil || (len(buff.bytes) == 0 && len(buff.buffer) == 0)
+	return buff == nil || (buff.bytesi == 0 && len(buff.buffer) == 0)
 }
 
 // Size - total size of Buffer
 func (buff *Buffer) Size() (s int64) {
+	if buff.Empty() {
+		return
+	}
 	s = 0
 	if len(buff.buffer) > 0 {
 		s += (int64(len(buff.buffer)) * int64(len(buff.buffer[0])))
