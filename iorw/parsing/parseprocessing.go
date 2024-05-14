@@ -117,6 +117,7 @@ func (ctntelm *contentelem) Close() (err error) {
 
 		if ctntelm.rawBuf != nil {
 			ctntelm.rawBuf.Close()
+			ctntelm.rawBuf = nil
 		}
 
 		if ctntelm.eofevent != nil {
@@ -952,6 +953,11 @@ func internalProcessParsing(
 									}
 
 									if crntnextelm != nil {
+										if ctntelmlvl == ctntElemEnd {
+											if al := len(elemlevels); al > 0 && elemlevels[al-1] == crntnextelm && strings.HasSuffix(crntnextelm.elemname, elemname) {
+												return crntnextelm.elemname
+											}
+										}
 										return crntnextelm.elemroot + elemname
 									}
 									return elempath + elemname
@@ -1002,7 +1008,7 @@ func internalProcessParsing(
 										crntnextelm.eofevent = func(crntelm *contentelem, elmerr error) {
 											if elmerr == nil {
 												if !crntelm.rawBuf.Empty() {
-													ctntrdr.PreAppend(crntnextelm.rawBuf.Clone(true).Reader(true))
+													ctntrdr.PreAppend(crntelm.rawBuf.Clone(true).Reader(true))
 												}
 												crntelm.Close()
 												crntnextelm = nil
@@ -1140,6 +1146,9 @@ func internalProcessParsing(
 			}
 			if prsngerr == nil {
 				if capturecache != nil {
+					if cdebuf.Empty() && !chdpsvbuf.Empty() {
+						DefaultMinifyPsv(pathext, chdpsvbuf, nil)
+					}
 					prsngerr = capturecache(fullpath, pathModified, validelempaths, chdpsvbuf, cdebuf, chdpgrm)
 				}
 			}
