@@ -11,8 +11,8 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 	"github.com/evocert/lnksnk/mimes"
 
-	_ "github.com/emersion/go-message/charset"
-	"github.com/emersion/go-message/mail"
+	_ "github.com/evocert/lnksnk/message/charset"
+	"github.com/evocert/lnksnk/message/mail"
 )
 
 type EmailWriter struct {

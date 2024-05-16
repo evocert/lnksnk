@@ -8,9 +8,9 @@ import (
 
 	"github.com/evocert/lnksnk/iorw"
 
-	"github.com/emersion/go-message"
-	_ "github.com/emersion/go-message/charset"
-	"github.com/emersion/go-message/mail"
+	"github.com/evocert/lnksnk/message"
+	_ "github.com/evocert/lnksnk/message/charset"
+	"github.com/evocert/lnksnk/message/mail"
 )
 
 type EmailReader struct {

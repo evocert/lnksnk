@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/emersion/go-message"
+	"github.com/evocert/lnksnk/message"
 )
 
 // MessageList represents the metadata returned by the server for a

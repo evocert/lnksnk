@@ -15,8 +15,8 @@ import (
 	"github.com/evocert/lnksnk/iorw/active"
 	"github.com/evocert/lnksnk/parameters"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-message"
+	"github.com/evocert/lnksnk/imap"
+	"github.com/evocert/lnksnk/message"
 )
 
 type EMail struct {

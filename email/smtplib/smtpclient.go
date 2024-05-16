@@ -7,8 +7,8 @@ import (
 
 	"github.com/evocert/lnksnk/email/emailwriter"
 
-	"github.com/emersion/go-sasl"
-	smtpe "github.com/emersion/go-smtp"
+	"github.com/evocert/lnksnk/sasl"
+	smtpe "github.com/evocert/lnksnk/smtp"
 )
 
 type SMTPClient struct {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/evocert/lnksnk/email/emailreader"
 
-	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/imapclient"
-	"github.com/emersion/go-sasl"
+	"github.com/evocert/lnksnk/imap"
+	"github.com/evocert/lnksnk/imap/imapclient"
+	"github.com/evocert/lnksnk/sasl"
 	"golang.org/x/oauth2"
 )
 

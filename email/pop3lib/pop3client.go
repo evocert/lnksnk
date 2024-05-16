@@ -7,7 +7,7 @@ import (
 	"github.com/evocert/lnksnk/email/emailreader"
 	"github.com/evocert/lnksnk/email/pop3"
 
-	"github.com/emersion/go-message"
+	"github.com/evocert/lnksnk/message"
 )
 
 type POP3Client struct {
