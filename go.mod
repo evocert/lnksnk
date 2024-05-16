@@ -6,10 +6,6 @@ require github.com/gorilla/websocket v1.5.1 // indirect
 
 require (
 	github.com/dlclark/regexp2 v1.11.0
-	github.com/emersion/go-imap/v2 v2.0.0-beta.3
-	github.com/emersion/go-message v0.18.1
-	github.com/emersion/go-sasl v0.0.0-20231106173351-e73c9f7bad43
-	github.com/emersion/go-smtp v0.21.2
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible
 	github.com/google/pprof v0.0.0-20240508145209-1db217f89380
 	github.com/quic-go/quic-go v0.43.1
