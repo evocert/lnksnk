@@ -94,6 +94,266 @@ func ParseEval(evalcode func(a ...interface{}) (val interface{}, err error), pat
 	return
 }
 
+func InvokeVM(vm *active.VM, a ...interface{}) (nvm *active.VM) {
+	if vm != nil {
+		return vm
+	}
+	select {
+	case nvm = <-chnvms:
+		if nvm == nil {
+			nvm = active.NewVM()
+		}
+	default:
+		nvm = active.NewVM()
+	}
+	var terminal *terminals = nil
+	var Out serveio.Writer = nil
+	var In serveio.Reader = nil
+	var params *parameters.Parameters = nil
+	var activemap map[string]interface{} = nil
+	var dbhnlr *database.DBMSHandler = nil
+	var fi fsutils.FileInfo
+	var fs *fsutils.FSUtils = nil
+	ai, al := 0, len(a)
+	for ai < al {
+		if terminalfuncd, _ := a[ai].(func() *terminals); terminalfuncd != nil {
+			if terminal == nil {
+				terminal = terminalfuncd()
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if terminald, _ := a[ai].(*terminals); terminald != nil {
+			if terminal == nil {
+				terminal = terminald
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if Outd, _ := a[ai].(serveio.Writer); Outd != nil {
+			if Out == nil {
+				Out = Outd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if Ind, _ := a[ai].(serveio.Reader); Ind != nil {
+			if In == nil {
+				In = Ind
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if paramsd, _ := a[ai].(*parameters.Parameters); paramsd != nil {
+			if params == nil {
+				params = paramsd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if activemapd, _ := a[ai].(map[string]interface{}); activemapd != nil {
+			if activemap == nil {
+				activemap = activemapd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if dbhnlrd, _ := a[ai].(*database.DBMSHandler); dbhnlrd != nil {
+			if dbhnlr == nil {
+				dbhnlr = dbhnlrd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if fsd, _ := a[ai].(*fsutils.FSUtils); fsd != nil {
+			if fs == nil {
+				fs = fsd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if fid, _ := a[ai].(fsutils.FileInfo); fid != nil {
+			if fi == nil {
+				fi = fid
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if fifuncd, _ := a[ai].(func() fsutils.FileInfo); fifuncd != nil {
+			if fi == nil {
+				fi = fifuncd()
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if a[ai] == nil {
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		ai++
+	}
+	nvm.ErrPrint = func(a ...interface{}) (vmerr error) {
+		if Out != nil {
+			Out.Print("<pre>ERR:\r\n")
+			Out.Print(a...)
+			Out.Print("\r\n</pre>")
+		}
+		return
+	}
+	nvm.Set("fs", fs)
+	nvm.Set("listen", LISTEN)
+	nvm.Set("lstn", LISTEN)
+	nvm.Set("terminal", terminal)
+	nvm.Set("trm", terminal)
+	nvm.Set("command", terminal)
+	nvm.Set("cmd", terminal)
+	nvm.Set("faf", func(rqstpath string) {
+		go ProcessRequestPath(rqstpath, nil)
+	})
+	var fparseEval = func(prsout io.Writer, evalrt interface{}, a ...interface{}) (prsevalerr error) {
+		var invert bool = false
+		var fitouse fsutils.FileInfo = nil
+		var fstouse *fsutils.FSUtils = nil
+		var prin, _ = evalrt.(io.Reader)
+		var evalroot, _ = evalrt.(string)
+		var suggestedroot = "/"
+		if prsout == nil {
+			prsout = Out
+		} else if prsout != Out {
+			if nvm.W == Out {
+				nvm.SetPrinter(prsout)
+				defer func() {
+					nvm.SetPrinter(Out)
+				}()
+			}
+		}
+		if len(a) > 0 {
+			if inv, invok := a[0].(bool); invok {
+				invert = inv
+				a = a[1:]
+			}
+		}
+		ai := 0
+		al := len(a)
+		for ai < al {
+			d := a[ai]
+			if fid, _ := d.(fsutils.FileInfo); fid != nil {
+				if fitouse == nil {
+					fitouse = fid
+				}
+				a = append(a[:ai], a[ai+1:])
+				al--
+				continue
+			}
+			if fsd, _ := d.(*fsutils.FSUtils); fsd != nil {
+				if fstouse == nil {
+					fstouse = fsd
+				}
+				a = append(a[:ai], a[ai+1:])
+				al--
+				continue
+			}
+			ai++
+		}
+
+		if fstouse == nil && fs != nil {
+			fstouse = fs
+		}
+
+		if fstouse != nil {
+			if fitouse == nil {
+				if evalroot != "" && prin == nil {
+					if fios := fs.LS(evalroot); len(fios) == 1 {
+						fitouse = fios[0]
+						evalroot = fitouse.PathRoot()
+						if !fitouse.IsDir() {
+							prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
+							return
+						}
+						for _, evlpth := range []string{"index.html", "index.js"} {
+							if fis := fstouse.LS(evalroot + evlpth); len(fis) == 1 {
+								fitouse = fis[0]
+								prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
+								return
+							}
+						}
+					}
+				}
+				fitouse = fi
+			}
+		}
+
+		if fitouse != nil {
+			suggestedroot = fitouse.PathRoot()
+		}
+
+		if evalroot != "" && prin == nil {
+			prin = strings.NewReader(evalroot)
+		}
+
+		if prin == nil && len(a) > 0 {
+			func() {
+				var prsevalbuf = iorw.NewBuffer()
+				defer prsevalbuf.Clear()
+				prsevalbuf.Print(a...)
+				if prsevalbuf.Size() > 0 {
+					prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fstouse, invert, nil, nil, nil)
+				}
+			}()
+		} else if prin != nil {
+			prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fstouse, invert, nil, nil, nil)
+		}
+		return prsevalerr
+	}
+
+	nvm.Set("parseEval", fparseEval)
+
+	nvm.Set("scheduling", SCHEDULING)
+	nvm.Set("schdlng", SCHEDULING)
+	nvm.Set("caching", CHACHING)
+	nvm.Set("cchng", CHACHING)
+	nvm.Set("db", dbhnlr)
+
+	nvm.Set("email", EMAILING.ActiveEmailManager(nvm, func() parameters.ParametersAPI {
+		return params
+	}, fs))
+	for actvkey, actvval := range activemap {
+		nvm.Set(actvkey, actvval)
+	}
+
+	var vmparam = map[string]interface{}{
+		"set":       params.SetParameter,
+		"get":       params.Parameter,
+		"type":      params.Type,
+		"exist":     params.ContainsParameter,
+		"fileExist": params.ContainsFileParameter,
+		"setFile":   params.SetFileParameter,
+		"getFile":   params.FileParameter,
+		"keys":      params.StandardKeys,
+		"fileKeys":  params.FileKeys,
+		"fileName":  params.FileName,
+	}
+
+	nvm.Set("_params", vmparam)
+	nvm.Set("_in", In)
+	nvm.Set("_out", Out)
+	nvm.R = In
+	nvm.W = Out
+
+	return nvm
+}
+
 func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs *fsutils.FSUtils, activemap map[string]interface{}, a ...interface{}) (err error) {
 	//defer gc()
 	params := parameters.NewParameters()
@@ -122,10 +382,10 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 		defer Out.Close()
 	}
 
-	var prsevalbuf *iorw.Buffer = nil
+	/*var prsevalbuf *iorw.Buffer = nil
 	if prsevalbuf != nil {
 		defer prsevalbuf.Close()
-	}
+	}*/
 	var terminal *terminals = nil
 	if terminal != nil {
 		defer terminal.Close()
@@ -158,176 +418,14 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 	})
 	defer dbhnlr.Dispose()
 	invokevm = func() *active.VM {
-		if vm != nil {
-			return vm
-		}
-		vm = func() (nvm *active.VM) {
-			select {
-			case nvm = <-chnvms:
-				if nvm == nil {
-					nvm = active.NewVM()
-				}
-			default:
-				nvm = active.NewVM()
-			}
-			nvm.ErrPrint = func(a ...interface{}) (vmerr error) {
-				if Out != nil {
-					Out.Print("<pre>ERR:\r\n")
-					Out.Print(a...)
-					Out.Print("\r\n</pre>")
-				}
-				return
-			}
-			nvm.Set("fs", fs)
-			nvm.Set("listen", LISTEN)
-			nvm.Set("lstn", LISTEN)
+		vm = InvokeVM(vm, func() *terminals {
 			if terminal == nil {
 				terminal = newTerminal()
 			}
-			nvm.Set("terminal", terminal)
-			nvm.Set("trm", terminal)
-			nvm.Set("command", terminal)
-			nvm.Set("cmd", terminal)
-			nvm.Set("faf", func(rqstpath string) {
-				go ProcessRequestPath(rqstpath, nil)
-			})
-			var fparseEval = func(prsout io.Writer, evalrt interface{}, a ...interface{}) (prsevalerr error) {
-				var invert bool = false
-				var fitouse fsutils.FileInfo = nil
-				var fstouse *fsutils.FSUtils = nil
-				var prin, _ = evalrt.(io.Reader)
-				var evalroot, _ = evalrt.(string)
-				var suggestedroot = "/"
-				if prsout == nil {
-					prsout = Out
-				} else if prsout != Out {
-					if nvm.W == Out {
-						nvm.SetPrinter(prsout)
-						defer func() {
-							nvm.SetPrinter(Out)
-						}()
-					}
-				}
-				if len(a) > 0 {
-					if inv, invok := a[0].(bool); invok {
-						invert = inv
-						a = a[1:]
-					}
-				}
-				ai := 0
-				al := len(a)
-				for ai < al {
-					d := a[ai]
-					if fid, _ := d.(fsutils.FileInfo); fid != nil {
-						if fitouse == nil {
-							fitouse = fid
-						}
-						a = append(a[:ai], a[ai+1:])
-						al--
-						continue
-					}
-					if fsd, _ := d.(*fsutils.FSUtils); fsd != nil {
-						if fstouse == nil {
-							fstouse = fsd
-						}
-						a = append(a[:ai], a[ai+1:])
-						al--
-						continue
-					}
-					ai++
-				}
-
-				if fstouse == nil && fs != nil {
-					fstouse = fs
-				}
-
-				if fstouse != nil {
-					if fitouse == nil {
-						if evalroot != "" && prin == nil {
-							if fios := fs.LS(evalroot); len(fios) == 1 {
-								fitouse = fios[0]
-								evalroot = fitouse.PathRoot()
-								if !fitouse.IsDir() {
-									prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
-									return
-								}
-								for _, evlpth := range []string{"index.html", "index.js"} {
-									if fis := fstouse.LS(evalroot + evlpth); len(fis) == 1 {
-										fitouse = fis[0]
-										prsevalerr = ParseEval(nvm.Eval, fitouse.Path(), fitouse.PathExt(), fitouse.ModTime(), prsout, nil, fstouse, invert, fitouse, nil, nil)
-										return
-									}
-								}
-							}
-						}
-						fitouse = fi
-					}
-				}
-
-				if fitouse != nil {
-					suggestedroot = fitouse.PathRoot()
-				}
-
-				if evalroot != "" && prin == nil {
-					prin = strings.NewReader(evalroot)
-				}
-
-				if prin == nil && len(a) > 0 {
-					func() {
-						defer prsevalbuf.Clear()
-						if prsevalbuf == nil {
-							prsevalbuf = iorw.NewBuffer()
-							prsevalbuf.Print(a...)
-						} else {
-							prsevalbuf.Clear()
-							prsevalbuf.Print(a...)
-						}
-						if prsevalbuf.Size() > 0 {
-							prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prsevalbuf.Clone(true).Reader(true), fstouse, invert, nil, nil, nil)
-						}
-					}()
-				} else if prin != nil {
-					prsevalerr = ParseEval(nvm.Eval, ":no-cache/"+suggestedroot, ".js", time.Now(), prsout, prin, fstouse, invert, nil, nil, nil)
-				}
-				return prsevalerr
-			}
-
-			nvm.Set("parseEval", fparseEval)
-
-			nvm.Set("scheduling", SCHEDULING)
-			nvm.Set("schdlng", SCHEDULING)
-			nvm.Set("caching", CHACHING)
-			nvm.Set("cchng", CHACHING)
-			nvm.Set("db", dbhnlr)
-
-			nvm.Set("email", EMAILING.ActiveEmailManager(nvm, func() parameters.ParametersAPI {
-				return params
-			}, fs))
-			for actvkey, actvval := range activemap {
-				nvm.Set(actvkey, actvval)
-			}
-
-			var vmparam = map[string]interface{}{
-				"set":       params.SetParameter,
-				"get":       params.Parameter,
-				"type":      params.Type,
-				"exist":     params.ContainsParameter,
-				"fileExist": params.ContainsFileParameter,
-				"setFile":   params.SetFileParameter,
-				"getFile":   params.FileParameter,
-				"keys":      params.StandardKeys,
-				"fileKeys":  params.FileKeys,
-				"fileName":  params.FileName,
-			}
-
-			nvm.Set("_params", vmparam)
-			nvm.Set("_in", In)
-			nvm.Set("_out", Out)
-			nvm.R = In
-			nvm.W = Out
-
-			return nvm
-		}()
+			return terminal
+		}, dbhnlr, params, Out, In, activemap, func() fsutils.FileInfo {
+			return fi
+		}, fs)
 		return vm
 	}
 	var rangeOffset = func() int64 {
