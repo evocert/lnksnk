@@ -1001,6 +1001,6 @@ func GLOBALRSNG() *ResourcingManager {
 func init() {
 	if glbrscngmngr == nil {
 		glbrscngmngr = NewResourcingManager()
-		glbrscngmngr.RegisterEndpoint("/", "./")
+		//glbrscngmngr.RegisterEndpoint("/", "./")
 	}
 }
