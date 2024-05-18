@@ -55,30 +55,61 @@ func ProcessRequesterConn(conn net.Conn, activemap map[string]interface{}) {
 			ProcessRequest("", rqst, NewResponseWriter(rqst, conn), activemap)
 		}
 	}
-
 }
 
 func ServeHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	ProcessRequest(r.URL.Path, r, w, nil)
 }
 
-func ProcessRequestPath(path string, activemap map[string]interface{}) (err error) {
+func ProcessRequestPath(path string, activemap map[string]interface{}, a ...interface{}) (err error) {
+	var fs *fsutils.FSUtils = nil
+	ai, al := 0, len(a)
+	for ai < al {
+		if fsd, _ := a[ai].(*fsutils.FSUtils); fsd != nil {
+			if fs == nil {
+				fs = fsd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		ai++
+	}
+	if fs == nil {
+		fs = gblfs
+	}
 	err = internalServeRequest(path, nil, nil, fs, activemap)
 	return
 }
 
-func ProcessRequest(path string, httprqst *http.Request, httprspns http.ResponseWriter, activemap map[string]interface{}) (err error) {
+func ProcessRequest(path string, httprqst *http.Request, httprspns http.ResponseWriter, activemap map[string]interface{}, a ...interface{}) (err error) {
+	var fs *fsutils.FSUtils = nil
+	ai, al := 0, len(a)
+	for ai < al {
+		if fsd, _ := a[ai].(*fsutils.FSUtils); fsd != nil {
+			if fs == nil {
+				fs = fsd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		ai++
+	}
+	if fs == nil {
+		fs = gblfs
+	}
 	if httprqst != nil && httprspns != nil {
 		if ws, wserr := ws.NewServerReaderWriter(httprspns, httprqst); wserr == nil && ws != nil {
 
 			return
 		}
-		err = internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap)
+		err = internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap, a...)
 	}
 	return
 }
 
-var fs = resources.GLOBALRSNG().FS()
+var gblfs = resources.GLOBALRSNG().FS()
 
 func ParseEval(evalcode func(a ...interface{}) (val interface{}, err error), path, pathext string, pathmodified time.Time, Out io.Writer, In io.Reader, fs *fsutils.FSUtils, invertactive bool, fi fsutils.FileInfo, fnmodified func(modified time.Time), fnactiveraw func(rsraw bool, rsactive bool)) (err error) {
 	if fi != nil && path != "" && path[0:1] != "/" {
