@@ -23,12 +23,21 @@ import (
 func main() {
 
 	args := os.Args
-	if len(args) > 1 {
+	ai, al := 0, len(args)
+	var appfunc func(...string) = nil
+	for ai < al {
+
+		ai++
+	}
+	if al > 1 {
 		if strings.EqualFold(args[1], "app") {
 			args = append(args[:1], args[1:]...)
-			app.App(args...)
-			return
+			appfunc = app.App
+		} else {
+			appfunc = srv.Serve
 		}
+	} else {
+		appfunc = srv.Serve
 	}
-	srv.Serve(os.Args...)
+	appfunc(args...)
 }

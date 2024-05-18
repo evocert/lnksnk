@@ -7,7 +7,10 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/evocert/lnksnk/fsutils"
+	"github.com/evocert/lnksnk/iorw"
 	"github.com/evocert/lnksnk/listen"
+	"github.com/evocert/lnksnk/resources"
 	"github.com/evocert/lnksnk/serve"
 )
 
@@ -31,14 +34,39 @@ func appName(args ...string) (appname string) {
 }
 
 func App(args ...string) {
+	fs := fsutils.NewFSUtils()
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 	listen.DefaultHandler = http.HandlerFunc(serve.ServeHTTPRequest)
 	serve.LISTEN = listen.NewListen(nil)
-	if err := serve.ProcessRequestPath("/active:"+appName()+".conf.js", nil); err != nil {
+	var appEnvPath = ""
+	ai, al := 0, len(args)
+	for ai < al {
+		if strings.EqualFold(args[ai], "-env-path") {
+			args = append(args[:ai], args[ai+1:]...)
+			al--
+			if ai < al {
+				if args[ai] != "" {
+					appEnvPath = strings.TrimFunc(args[ai], iorw.IsSpace)
+				}
+				args = append(args[:ai], args[ai+1:]...)
+				al--
+			}
+		}
+		ai++
+	}
+	if appEnvPath == "" {
+		appEnvPath = "./"
+	}
+	appName := appName()
+	if fs.EXISTS(appEnvPath) {
+		resources.GLOBALRSNG().FS().MKDIR("/"+appName+"/env", appEnvPath)
+		appEnvPath = "/" + appName + "/env/"
+	}
+	if err := serve.ProcessRequestPath("/active:"+appEnvPath[1:]+appName+".conf.js", nil); err != nil {
 		println(err.Error())
 	}
 	<-done
-	serve.ProcessRequestPath("/active:"+appName()+".fin.js", nil)
+	serve.ProcessRequestPath("/active:"+appName+".fin.js", nil, &fs)
 	listen.ShutdownAll()
 }
