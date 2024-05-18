@@ -356,6 +356,10 @@ func EXISTS(path string) (pathexists bool, err error) {
 	if path != "" {
 		path = strings.Replace(path, "\\", "/", -1)
 	}
+	if fi, fierr := os.Stat(path); fierr == nil && fi != nil {
+		pathexists = true
+		return
+	}
 	if finfos, lserr := LS(path); lserr == nil && len(finfos) == 1 {
 		pathexists = true
 	} else {
