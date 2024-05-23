@@ -116,14 +116,20 @@ func (stmnt *Statement) Prepair(prms *parameters.Parameters, rdr *Reader, args m
 			qrybuf.Print(a...)
 		}
 
-		if fs != nil && qrybuf.HasSuffix(".sql") {
+		if fs != nil {
 			if fi := func() fsutils.FileInfo {
-				tstsql := qrybuf.String()
-				if fio := fs.LS(tstsql); len(fio) == 1 {
-					return fio[0]
-				}
-				if fio := fs.LS(tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"); len(fio) == 1 {
-					return fio[0]
+				if tstsql := qrybuf.String() + func() string {
+					if !qrybuf.HasSuffix(".sql") {
+						return ".sql"
+					}
+					return ""
+				}(); tstsql != "" {
+					if fio := fs.LS(tstsql); len(fio) == 1 {
+						return fio[0]
+					}
+					if fio := fs.LS(tstsql[:len(tstsql)-len(".sql")] + "." + stmnt.cn.driverName + ".sql"); len(fio) == 1 {
+						return fio[0]
+					}
 				}
 				return nil
 			}(); fi != nil && stmnthndlr != nil {
