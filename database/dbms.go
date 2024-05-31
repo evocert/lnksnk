@@ -1028,3 +1028,12 @@ func (dbms *DBMS) Prepair(alias string, a ...interface{}) (exectr *Executor) {
 	}
 	return
 }
+
+func (dbms *DBMS) Exists(alias string) (exists bool) {
+	if dbms != nil {
+		if cnctns := dbms.cnctns; cnctns != nil {
+			_, exists = cnctns.Load(alias)
+		}
+	}
+	return
+}
