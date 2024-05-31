@@ -48,6 +48,24 @@ func Shutdown(keys ...interface{}) {
 	}
 }
 
+func AddrHosts(network, addr string) (host string, err error) {
+	rsvldaddr, _ := net.ResolveTCPAddr(func() string {
+		if network == "quic" {
+			return "tcp"
+		}
+		return network
+	}(), addr)
+	host = rsvldaddr.IP.String()
+	if host == "" || host == "<nil>" {
+		host = "localhost"
+	}
+	addresses, _ := net.LookupAddr(host)
+	for _, hst := range addresses {
+		host = hst
+	}
+	return
+}
+
 type listen struct {
 	handler   http.Handler
 	TLSConfig *tls.Config
@@ -61,36 +79,29 @@ func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
 
 func (lsnt *listen) ServeTLS(network string, addr string, orgname string, tlsconf ...*tls.Config) {
 	if lsnt != nil {
-		rsvldaddr, _ := net.ResolveTCPAddr(func() string {
-			if network == "quic" {
-				return "tcp"
-			}
-			return network
-		}(), addr)
-
-		host := rsvldaddr.IP.String()
+		host, _ := AddrHosts(network, addr)
 		certhost := host
-		if host == "" || host == "<nil>" {
-			host = "localhost"
-			certhost = host
-		}
-
-		if addrnames, _ := net.LookupHost(host); len(addrnames) > 0 {
-			for _, adr := range addrnames {
-				host = adr
-			}
-		}
 		if len(tlsconf) == 0 {
-			if publc, prv, err := GenerateTestCertificate(certhost, orgname); err == nil {
-				if cert, err := tls.X509KeyPair(publc, prv); err == nil {
-					tslcnf := &tls.Config{InsecureSkipVerify: true}
-					tslcnf.Certificates = append(tslcnf.Certificates, cert)
-					tlsconf = append(tlsconf, tslcnf)
-				}
+			if tlscnf, _ := GenerateTlsConfig(certhost, orgname); tlscnf != nil {
+				tlsconf = append(tlsconf, tlscnf)
 			}
 		}
 		Serve(network, addr, lsnt.handler, tlsconf...)
 	}
+}
+
+func GenerateTlsConfig(certhost, orgname string) (tslconf *tls.Config, err error) {
+	publc, prv, crterr := GenerateTestCertificate(certhost, orgname)
+	if crterr != nil {
+		return
+	}
+	cert, certerr := tls.X509KeyPair(publc, prv)
+	if certerr != nil {
+		return
+	}
+	tslconf = &tls.Config{InsecureSkipVerify: true}
+	tslconf.Certificates = append(tslconf.Certificates, cert)
+	return
 }
 
 func (lsnt *listen) Shutdown(keys ...interface{}) {
