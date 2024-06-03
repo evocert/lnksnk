@@ -3,8 +3,9 @@ package iorw
 import "io"
 
 type RuneReaderSlice struct {
-	rnrdrs  []io.RuneReader
-	crntrdr io.RuneReader
+	rnrdrs   []io.RuneReader
+	crntrdr  io.RuneReader
+	EventEof func(io.RuneReader, error)
 }
 
 func NewRuneReaderSlice(rnrdrs ...io.RuneReader) (rnrdrsslce *RuneReaderSlice) {
@@ -39,25 +40,47 @@ func (rnrdrsslce *RuneReaderSlice) PostAppend(rdrs ...io.RuneReader) {
 	}
 }
 
-func (rnrdrsslce *RuneReaderSlice) ReadRune() (r rune, size int, err error) {
-	if rnrdrsslce != nil {
-		if rnrdrsslce.crntrdr != nil {
-			r, size, err = rnrdrsslce.crntrdr.ReadRune()
-			if size == 0 && (err == nil || err == io.EOF) {
-				rnrdrsslce.crntrdr = nil
-				r, size, err = rnrdrsslce.ReadRune()
-				return
-			}
+func readSliceRune(rnrdrsslce *RuneReaderSlice, eventeof func(io.RuneReader, error), crntrdr io.RuneReader) (r rune, size int, err error) {
+	if rnrdrsslce == nil {
+		err = io.EOF
+		return
+	}
+	rdrsl := len(rnrdrsslce.rnrdrs)
+	if crntrdr != nil {
+		r, size, err = crntrdr.ReadRune()
+		if size > 0 {
 			return
 		}
-		if rdrsl := len(rnrdrsslce.rnrdrs); rdrsl > 0 {
-			rnrdrsslce.crntrdr = rnrdrsslce.rnrdrs[0]
-			rnrdrsslce.rnrdrs = rnrdrsslce.rnrdrs[1:]
-			return rnrdrsslce.ReadRune()
+		rnrdrsslce.crntrdr = nil
+		if err == nil || err == io.EOF {
+			if rdrsl == 0 {
+				if err == nil {
+					err = io.EOF
+				}
+				if eventeof != nil {
+					eventeof(crntrdr, err)
+				}
+				return
+			}
+			if err == io.EOF {
+				err = nil
+			}
 		}
+		if eventeof != nil {
+			eventeof(crntrdr, err)
+		}
+	}
+	if rdrsl > 0 {
+		rnrdrsslce.crntrdr = rnrdrsslce.rnrdrs[0]
+		rnrdrsslce.rnrdrs = rnrdrsslce.rnrdrs[1:]
+		return readSliceRune(rnrdrsslce, rnrdrsslce.EventEof, rnrdrsslce.crntrdr)
 	}
 	err = io.EOF
 	return
+}
+
+func (rnrdrsslce *RuneReaderSlice) ReadRune() (r rune, size int, err error) {
+	return readSliceRune(rnrdrsslce, rnrdrsslce.EventEof, rnrdrsslce.crntrdr)
 }
 
 func (rnrdrsslce *RuneReaderSlice) Close() (err error) {
