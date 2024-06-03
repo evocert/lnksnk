@@ -954,7 +954,7 @@ func internalProcessParsing(
 
 									if crntnextelm != nil {
 										if ctntelmlvl == ctntElemEnd {
-											if al := len(elemlevels); al > 0 && elemlevels[al-1] == crntnextelm && strings.HasSuffix(crntnextelm.elemname, elemname) {
+											if al := len(elemlevels); al > 0 && elemlevels[0] == crntnextelm && strings.HasSuffix(crntnextelm.elemname, elemname) {
 												return crntnextelm.elemname
 											}
 										}
