@@ -92,7 +92,7 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 				rplcerrdr.crntrdr, _ = phrsr.(io.RuneReader)
 				return true
 			}
-			if phrsbf, _ := phrsev.(*Buffer); phrsbf != nil {
+			if phrsbf, _ := phrsev.(*Buffer); !phrsbf.Empty() {
 				if isrepeatable {
 					if preappndrdr != nil {
 						rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, phrsbf.Clone(true).Reader(true))
@@ -106,6 +106,10 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 					return true
 				}
 				rplcerrdr.crntrdr = phrsbf.Reader()
+				return true
+			}
+			if preappndrdr != nil {
+				rplcerrdr.crntrdr = preappndrdr
 				return true
 			}
 		}
