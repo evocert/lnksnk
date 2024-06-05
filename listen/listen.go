@@ -101,6 +101,11 @@ func GenerateTlsConfig(certhost, orgname string) (tslconf *tls.Config, err error
 	}
 	tslconf = &tls.Config{InsecureSkipVerify: true}
 	tslconf.Certificates = append(tslconf.Certificates, cert)
+	if oscph, oscperr := NewOcspHandler(cert); oscperr == nil {
+		go oscph.Start()
+		tslconf.InsecureSkipVerify = false
+		tslconf.GetCertificate = oscph.GetCertificate
+	}
 	return
 }
 
@@ -190,7 +195,7 @@ func GenerateTestCertificate(host string, orgname string) ([]byte, []byte, error
 		SignatureAlgorithm:    x509.SHA256WithRSA,
 		DNSNames:              []string{host},
 		BasicConstraintsValid: true,
-		IsCA:                  false,
+		IsCA:                  true,
 	}
 
 	certBytes, err := x509.CreateCertificate(
