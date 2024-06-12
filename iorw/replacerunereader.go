@@ -37,6 +37,8 @@ func NewReplaceRuneReader(orgrdr interface{}, rplwiths ...interface{}) (rplcerrd
 	return
 }
 
+type ReplaceRunesEvent func(matchphrase string, rplcerrdr *ReplaceRuneReader) interface{}
+
 func (rplcerrdr *ReplaceRuneReader) ReplaceWith(phrase, replacewith interface{}) {
 	if rplcerrdr != nil {
 		if sphrase, _ := phrase.(string); sphrase != "" {
@@ -61,7 +63,7 @@ func (rplcerrdr *ReplaceRuneReader) ReplaceWith(phrase, replacewith interface{})
 	}
 }
 
-func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]interface{}, phrase string, isrepeatable bool, rnstopreappend ...rune) bool {
+func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]interface{}, phrase string, isrepeatable bool, rnstopreappend ...rune) (bool, error) {
 	if len(rplcewith) > 0 && phrase != "" {
 		var preappndrdr io.RuneReader = nil
 		if len(rnstopreappend) > 0 {
@@ -71,50 +73,115 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 			if phrss, phrssok := phrsev.(string); phrssok && phrss != "" {
 				if preappndrdr != nil {
 					rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, strings.NewReader(phrss))
-					return true
+					return true, nil
 				}
 				rplcerrdr.crntrdr = strings.NewReader(phrss)
-				return true
+				return true, nil
 			}
 			if phrsr, _ := phrsev.(io.Reader); phrsr != nil {
 				if rdr, _ := phrsr.(io.RuneReader); rdr == nil {
 					if preappndrdr != nil {
 						rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, bufio.NewReader(phrsr))
-						return true
+						return true, nil
 					}
 					rplcerrdr.crntrdr = bufio.NewReader(phrsr)
-					return true
+					return true, nil
 				}
 				if preappndrdr != nil {
 					rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, bufio.NewReader(phrsr))
-					return true
+					return true, nil
 				}
 				rplcerrdr.crntrdr, _ = phrsr.(io.RuneReader)
-				return true
+				return true, nil
 			}
 			if phrsbf, _ := phrsev.(*Buffer); !phrsbf.Empty() {
 				if isrepeatable {
 					if preappndrdr != nil {
 						rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, phrsbf.Clone(true).Reader(true))
-						return true
+						return true, nil
 					}
 					rplcerrdr.crntrdr = phrsbf.Clone(true).Reader(true)
-					return true
+					return true, nil
 				}
 				if preappndrdr != nil {
 					rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, phrsbf.Reader())
-					return true
+					return true, nil
 				}
 				rplcerrdr.crntrdr = phrsbf.Reader()
-				return true
+				return true, nil
+			}
+			if subReplaceRdrEvent, _ := phrsev.(func(string, *ReplaceRuneReader) interface{}); subReplaceRdrEvent != nil {
+				if nxtrdr := subReplaceRdrEvent(phrase, rplcerrdr); nxtrdr != nil {
+					if preappndrdr != nil {
+						if nxtvrnr, _ := nxtrdr.(io.RuneReader); nxtvrnr != nil {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, nxtvrnr)
+							return true, nil
+						}
+						if nxtvs, _ := nxtrdr.(string); nxtvs != "" {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, strings.NewReader(nxtvs))
+							return true, nil
+						}
+						if nxtvrns, _ := nxtrdr.([]int32); len(nxtvrns) > 0 {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, strings.NewReader(string(nxtvrns)))
+							return true, nil
+						}
+						rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, NewMultiArgsReader(nxtrdr))
+						return true, nil
+
+					}
+					if nxtvrnr, _ := nxtrdr.(io.RuneReader); nxtvrnr != nil {
+						rplcerrdr.crntrdr = nxtvrnr
+						return true, nil
+					}
+					if nxtvs, _ := nxtrdr.(string); nxtvs != "" {
+						rplcerrdr.crntrdr = strings.NewReader(nxtvs)
+						return true, nil
+					}
+					rplcerrdr.crntrdr = NewMultiArgsReader(nxtrdr)
+					return true, nil
+				}
+			}
+			if subReplaceRdrEvent, _ := phrsev.(ReplaceRunesEvent); subReplaceRdrEvent != nil {
+				if nxtrdr := subReplaceRdrEvent(phrase, rplcerrdr); nxtrdr != nil {
+					if errnxtrdr, _ := nxtrdr.(error); errnxtrdr != nil {
+						return false, errnxtrdr
+					}
+					if preappndrdr != nil {
+						if nxtvrnr, _ := nxtrdr.(io.RuneReader); nxtvrnr != nil {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, nxtvrnr)
+							return true, nil
+						}
+						if nxtvs, _ := nxtrdr.(string); nxtvs != "" {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, strings.NewReader(nxtvs))
+							return true, nil
+						}
+						if nxtvrns, _ := nxtrdr.([]int32); len(nxtvrns) > 0 {
+							rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, strings.NewReader(string(nxtvrns)))
+							return true, nil
+						}
+						rplcerrdr.crntrdr = NewRuneReaderSlice(preappndrdr, NewMultiArgsReader(nxtrdr))
+						return true, nil
+
+					}
+					if nxtvrnr, _ := nxtrdr.(io.RuneReader); nxtvrnr != nil {
+						rplcerrdr.crntrdr = nxtvrnr
+						return true, nil
+					}
+					if nxtvs, _ := nxtrdr.(string); nxtvs != "" {
+						rplcerrdr.crntrdr = strings.NewReader(nxtvs)
+						return true, nil
+					}
+					rplcerrdr.crntrdr = NewMultiArgsReader(nxtrdr)
+					return true, nil
+				}
 			}
 			if preappndrdr != nil {
 				rplcerrdr.crntrdr = preappndrdr
-				return true
+				return true, nil
 			}
 		}
 	}
-	return false
+	return false, nil
 }
 
 func underlineReadRune(rplcerrdr *ReplaceRuneReader) (r rune, size int, err error) {
@@ -197,20 +264,18 @@ func underlineReadRune(rplcerrdr *ReplaceRuneReader) (r rune, size int, err erro
 				if lstphrn == -1 {
 					rplcerrdr.rmnrnsl = 0
 					rplcerrdr.crntrdr = strings.NewReader(string(rnstst[:rnststL]))
-					//rplcerrdr.crntrns = append(rplcerrdr.crntrns, rnstst[:rnststL]...)
-					//rplcerrdr.crntrnsl += rnststL
 					return underlineReadRune(rplcerrdr)
 				}
 				mtchdprhase := rplcerrdr.rplcekeys[lstphrn]
 				var preappendrunes []rune = nil
 				if lstphrsi > 0 {
-					//rplcerrdr.crntrns = append(rplcerrdr.crntrns, rnstst[:lstphrsi]...)
-					//rplcerrdr.crntrnsl += len(rnstst[:lstphrsi])
 					preappendrunes = make([]rune, len(rnstst[:lstphrsi]))
 					copy(preappendrunes, rnstst[:lstphrsi])
 				}
 				rplcerrdr.rmnrnsl = copy(rnstst, rnstst[lstphrsi+len(mtchdprhase):rnststL])
-				replacedWithReader(rplcerrdr, rplcerrdr.rplcewith, mtchdprhase, true, preappendrunes...)
+				if _, err = replacedWithReader(rplcerrdr, rplcerrdr.rplcewith, mtchdprhase, true, preappendrunes...); err != nil {
+					return 0, 0, err
+				}
 				return underlineReadRune(rplcerrdr)
 			}
 		}
