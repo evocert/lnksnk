@@ -3,7 +3,9 @@ package iorw
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"unicode/utf8"
 )
@@ -760,6 +762,128 @@ func (buff *Buffer) String() (s string) {
 	return
 }
 
+func (buff *Buffer) Equals(testv interface{}) (equals bool, err error) {
+	if !buff.Empty() {
+		if testbuf, _ := testv.(*Buffer); testbuf != nil {
+			if equals = testbuf == buff; equals {
+				return
+			}
+			if tstbufl, bufl := testbuf.Size(), buff.Size(); tstbufl > 0 && tstbufl == bufl {
+				testcur, bufcur := newBufferCursor(testbuf, true), newBufferCursor(buff, true)
+				defer testcur.close()
+				defer bufcur.close()
+				maxl := 8192
+				if tstbufl < int64(maxl) {
+					maxl = int(tstbufl)
+				}
+				tp := make([]byte, maxl)
+				tn := 0
+				terr := error(nil)
+				bp := make([]byte, maxl)
+				bn := 0
+				berr := error(nil)
+				equals = true
+				for equals && terr == nil && berr == nil {
+					if tn, terr = testcur.Read(tp); tn > 0 {
+						if bn, berr = bufcur.Read(bp); bn > 0 {
+							for ti := range tn {
+								if bp[ti] != tp[ti] {
+									equals = false
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		bufl := buff.Size()
+		if testrnrdr := func() io.RuneReader {
+			if tstrnr, _ := testv.(io.RuneReader); tstrnr != nil {
+				return tstrnr
+			}
+			if tstr, _ := testv.(io.Reader); tstr != nil {
+				return bufio.NewReader(tstr)
+			}
+			if tsts, _ := testv.(string); tsts != "" {
+				return strings.NewReader(tsts)
+			}
+			if tstfs, _ := testv.(FuncString); tstfs != nil {
+				if tsts := tstfs.String(); tsts != "" {
+					return strings.NewReader(tsts)
+				}
+			}
+			if tstrns, _ := testv.([]int32); len(tstrns) > 0 {
+				return strings.NewReader(string(tstrns))
+			}
+			if testv != nil {
+				if tsts := fmt.Sprintf("%v", testv); tsts != "" {
+					return strings.NewReader(string(tsts))
+				}
+			}
+			return nil
+		}(); testrnrdr != nil {
+			trns := make([]rune, 8192)
+			terr := error(nil)
+			tl := 0
+			bufrdr := buff.Reader()
+			bfrns := make([]rune, 8192)
+			bi := 0
+			bl := 0
+			equals = true
+			for equals {
+				if tl == 0 {
+					if tl, terr = ReadRunes(trns, testrnrdr); tl == 0 {
+						if terr != nil && terr != io.EOF {
+							err = terr
+							equals = false
+							return
+						}
+						break
+					}
+					if terr != nil && terr != io.EOF {
+						equals = false
+						err = terr
+					}
+				}
+				for ti := range tl {
+					if bl == 0 {
+						if bl, _ = ReadRunes(bfrns, bufrdr); bl == 0 {
+							if ti < tl-1 {
+								equals = false
+								return
+							}
+							break
+						}
+						bi = 0
+					}
+					if trns[ti] != bfrns[bi] {
+						equals = false
+						return
+					}
+					bi++
+					if bi == bl {
+						bl = 0
+					}
+					bufl--
+					if bufl < 0 {
+						equals = false
+						return
+					}
+					if ti+1 == tl {
+						tl = 0
+						break
+					}
+				}
+			}
+			if bufl > 0 && equals {
+				equals = false
+			}
+		}
+	}
+	return
+}
+
 // Empty - true if Buffer content is empty
 func (buff *Buffer) Empty() bool {
 	return buff == nil || (buff.bytesi == 0 && len(buff.buffer) == 0)
@@ -820,11 +944,10 @@ func (buff *Buffer) ReadRunesFrom(r interface{}) (n int64, err error) {
 			if pnerr != nil {
 				err = pnerr
 				break
-			} else {
-				if pn == 0 {
-					err = io.EOF
-					break
-				}
+			}
+			if pn == 0 {
+				err = io.EOF
+				break
 			}
 		}
 		if ppi > 0 {
@@ -1728,7 +1851,19 @@ func (bufr *BuffReader) ReadRune() (r rune, size int, err error) {
 		if bufr.rnr == nil {
 			bufr.rnr = bufio.NewReader(bufr)
 		}
-		r, size, err = bufr.rnr.ReadRune()
+		return bufr.rnr.ReadRune()
+	}
+	err = io.EOF
+	return
+}
+
+// ReadRunes -
+func (bufr *BuffReader) ReadRunes(p []rune) (n int, err error) {
+	if bufr != nil && bufr.bufcur != nil {
+		if bufr.rnr == nil {
+			bufr.rnr = bufio.NewReader(bufr)
+		}
+		return ReadRunes(p, bufr.rnr)
 	} else {
 		err = io.EOF
 	}
