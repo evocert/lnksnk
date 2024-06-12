@@ -296,13 +296,18 @@ func Fprintln(w io.Writer, a ...interface{}) (err error) {
 }
 
 // ReadLines from r io.Reader as lines []string
-func ReadLines(r io.Reader) (lines []string, err error) {
+func ReadLines(r interface{}) (lines []string, err error) {
 	if r != nil {
 		var rnrd io.RuneReader = nil
 		if rnr, rnrok := r.(io.RuneReader); rnrok {
 			rnrd = rnr
 		} else {
-			rnrd = bufio.NewReader(r)
+			if rd, _ := r.(io.Reader); rd != nil {
+				rnrd = bufio.NewReader(rd)
+			}
+		}
+		if rnrd == nil {
+			return
 		}
 		rns := make([]rune, 1024)
 		rnsi := 0
@@ -914,4 +919,38 @@ func LastIndexOfRunes(runes []rune, subrunes ...rune) int {
 		}
 	}
 	return -1
+}
+
+func ReadRunes(p []rune, rds ...interface{}) (n int, err error) {
+	if pl := len(p); pl > 0 {
+		var rd io.RuneReader = nil
+		if len(rds) == 1 {
+			if rd, _ = rds[0].(io.RuneReader); rd == nil {
+				if r, _ := rds[0].(io.Reader); r != nil {
+					rd = bufio.NewReader(r)
+				}
+			}
+			if rd != nil {
+				pi := 0
+				for pi < pl {
+					pr, ps, perr := rd.ReadRune()
+					if ps > 0 {
+						p[pi] = pr
+						pi++
+					}
+					if perr != nil || ps == 0 {
+						if perr == nil {
+							perr = io.EOF
+						}
+						err = perr
+						break
+					}
+				}
+				if n = pi; n > 0 && err == io.EOF {
+					err = nil
+				}
+			}
+		}
+	}
+	return
 }
