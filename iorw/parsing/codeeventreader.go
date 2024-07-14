@@ -330,7 +330,7 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 				continue
 			}
 			if cdecmntevtr, _ := a[0].(*commentevtreader); cdecmntevtr != nil {
-				cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, prepCodeCommentReader(cdeevtrdr, cmntsl, cdecmntevtr))
+				cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, cdecmntevtr)
 				if canpostcontent {
 					cdecmntevtr.postcmnt = canpostcontent
 					canpostcontent = false
@@ -353,7 +353,7 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 				if postlbl := a[0].(string); postlbl != "" {
 					a = a[1:]
 					al--
-					cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, prepCodeCommentReader(cdeevtrdr, cmntsl, newCmntEvtReader(cdeevtrdr, prelbl, postlbl, cmmntpostevent, canpostcontent)))
+					cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, newCmntEvtReader(cdeevtrdr, prelbl, postlbl, cmmntpostevent, canpostcontent))
 					if canpostcontent {
 						canpostcontent = false
 					}
@@ -377,6 +377,6 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 	}
 }
 
-func prepCodeCommentReader(cdeevtrdr *codeeventreader, cdecmntix int, cdecmntrdr *commentevtreader) *commentevtreader {
+/*func prepCodeCommentReader(cdeevtrdr *codeeventreader, cdecmntix int, cdecmntrdr *commentevtreader) *commentevtreader {
 	return cdecmntrdr
-}
+}*/
