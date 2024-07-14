@@ -20,9 +20,12 @@ import (
 	"github.com/evocert/lnksnk/database"
 	"github.com/evocert/lnksnk/database/dbserve"
 	"github.com/evocert/lnksnk/email/emailing"
+	"github.com/evocert/lnksnk/emailservice"
+	"github.com/evocert/lnksnk/emailservice/emailserve"
 	"github.com/evocert/lnksnk/fsutils"
 	"github.com/evocert/lnksnk/iorw"
 	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/evocert/lnksnk/iorw/active/require"
 	"github.com/evocert/lnksnk/iorw/parsing"
 	_ "github.com/evocert/lnksnk/iorw/parsing/minify"
 	"github.com/evocert/lnksnk/mimes"
@@ -104,7 +107,7 @@ func ProcessRequest(path string, httprqst *http.Request, httprspns http.Response
 
 			return
 		}
-		err = internalServeRequest("", serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap, a...)
+		err = internalServeRequest(path, serveio.NewReader(httprqst), serveio.NewWriter(httprspns), fs, activemap, a...)
 	}
 	return
 }
@@ -143,6 +146,7 @@ func InvokeVM(vm *active.VM, a ...interface{}) (nvm *active.VM) {
 	var params *parameters.Parameters = nil
 	var activemap map[string]interface{} = nil
 	var dbhnlr *database.DBMSHandler = nil
+	var emailsvchndl *emailservice.EMAILSvcHandler = nil
 	var fi fsutils.FileInfo
 	var fs *fsutils.FSUtils = nil
 	ai, al := 0, len(a)
@@ -198,6 +202,14 @@ func InvokeVM(vm *active.VM, a ...interface{}) (nvm *active.VM) {
 		if dbhnlrd, _ := a[ai].(*database.DBMSHandler); dbhnlrd != nil {
 			if dbhnlr == nil {
 				dbhnlr = dbhnlrd
+			}
+			a = append(a[:ai], a[ai+1:]...)
+			al--
+			continue
+		}
+		if emailsvchnld, _ := a[ai].(*emailservice.EMAILSvcHandler); emailsvchnld != nil {
+			if emailsvchndl == nil {
+				emailsvchndl = emailsvchnld
 			}
 			a = append(a[:ai], a[ai+1:]...)
 			al--
@@ -355,7 +367,7 @@ func InvokeVM(vm *active.VM, a ...interface{}) (nvm *active.VM) {
 	nvm.Set("caching", CHACHING)
 	nvm.Set("cchng", CHACHING)
 	nvm.Set("db", dbhnlr)
-
+	nvm.Set("emailsvc", emailsvchndl)
 	nvm.Set("email", EMAILING.ActiveEmailManager(nvm, func() parameters.ParametersAPI {
 		return params
 	}, fs))
@@ -427,6 +439,10 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 	defer dbclsrs.Close()
 	var vm *active.VM = nil
 	var invokevm func() *active.VM
+	var emailsvchndl *emailservice.EMAILSvcHandler = emailservice.GLOABLEMAILSVC().EMAILSvcHandler(ctx, active.RuntimeFunc(func(functocall interface{}, args ...interface{}) interface{} {
+		return invokevm().InvokeFunction(functocall, args...)
+	}), params)
+	defer emailsvchndl.Dispose()
 	var dbhnlr *database.DBMSHandler = DBMS.DBMSHandler(ctx, active.RuntimeFunc(func(functocall interface{}, args ...interface{}) interface{} {
 		return invokevm().InvokeFunction(functocall, args...)
 	}), params, CHACHING, fs, func(ina ...interface{}) (a []interface{}) {
@@ -454,7 +470,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 				terminal = newTerminal()
 			}
 			return terminal
-		}, dbhnlr, params, Out, In, activemap, func() fsutils.FileInfo {
+		}, dbhnlr, emailsvchndl, params, Out, In, activemap, func() fsutils.FileInfo {
 			return fi
 		}, fs)
 		return vm
@@ -518,6 +534,9 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 		}
 	}
 	if fndapi, dbapierr := dbserve.ServeRequest("/db:", Out, In, path, dbhnlr, params, fs); fndapi || dbapierr != nil {
+		return
+	}
+	if fndapi, emailapierr := emailserve.ServeRequest("/email:", Out, In, path, emailsvchndl, params, fs); fndapi || emailapierr != nil {
 		return
 	}
 	if fi == nil && pathext == "" && strings.HasSuffix(path, "/") {
@@ -600,6 +619,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 											Out.Header().Set("Content-Length", fmt.Sprintf("%d", maxlen))
 										}
 										eofrs.SetMaxRead(maxlen)
+										Out.MaxWriteSize(maxlen)
 										if Out != nil {
 											Out.WriteHeader(206)
 										}
@@ -609,6 +629,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 											Out.Header().Set("Content-Length", fmt.Sprintf("%d", rssize))
 										}
 										eofrs.SetMaxRead(rssize)
+										Out.MaxWriteSize(rssize)
 									}
 								}
 								Out.Print(eofrs)
@@ -619,11 +640,12 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 					if Out != nil {
 						if fi != nil {
 							Out.Header().Set("Content-Length", fmt.Sprintf("%d", fi.Size()))
-						}
-						if f, ferr := fi.Open(); ferr == nil {
-							if f != nil {
-								defer f.Close()
-								Out.Print(f)
+							Out.WriteHeader(200)
+							if f, ferr := fi.Open(); ferr == nil {
+								if f != nil {
+									defer f.Close()
+									Out.Print(io.LimitReader(f, fi.Size()))
+								}
 							}
 						}
 					}
@@ -633,7 +655,9 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 					if f, ferr := fi.Open(); ferr == nil {
 						if f != nil {
 							defer f.Close()
-							Out.Print(f)
+							Out.Header().Set("Content-Length", fmt.Sprintf("%d", fi.Size()))
+							Out.WriteHeader(200)
+							Out.Print(io.LimitReader(f, fi.Size()))
 						}
 					}
 				}
@@ -751,8 +775,6 @@ func (terms *terminals) Close() {
 	}
 }
 
-//var requests = concurrent.NewMap()
-
 var chnvms = make(chan *active.VM)
 var chndbmshnds = make(chan *database.DBMSHandler)
 var chnemailing = make(chan *emailing.ActiveEmailManager)
@@ -773,6 +795,7 @@ var LISTEN ListenApi = nil
 var CHACHING = concurrent.NewMap()
 
 func init() {
+	require.DefaultSourceFS = gblfs
 	go func() {
 		for vmref := range chnvms {
 			go func(vm *active.VM) { vm.Close() }(vmref)

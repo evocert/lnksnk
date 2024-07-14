@@ -14,6 +14,8 @@ import (
 	_ "github.com/evocert/lnksnk/database/mysql"
 	_ "github.com/evocert/lnksnk/database/ora"
 	_ "github.com/evocert/lnksnk/database/postgres"
+	_ "github.com/evocert/lnksnk/database/sqlite"
+	_ "github.com/evocert/lnksnk/emailservice/emailserve/imapcmd"
 	_ "github.com/evocert/lnksnk/fonts"
 	"github.com/evocert/lnksnk/sys/app"
 	"github.com/evocert/lnksnk/sys/srv"
@@ -33,10 +35,14 @@ func main() {
 		if strings.EqualFold(args[1], "app") {
 			args = append(args[:1], args[1:]...)
 			appfunc = app.App
+		} else if strings.EqualFold(args[1], "webapp") {
+			args = append(args[:1], args[1:]...)
+			//appfunc = webapp.App
 		} else {
 			appfunc = srv.Serve
 		}
 	} else {
+		//appfunc = srv.Serve
 		appfunc = srv.Serve
 	}
 	appfunc(args...)
