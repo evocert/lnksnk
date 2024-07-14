@@ -41,22 +41,36 @@ func Fprint(w io.Writer, a ...interface{}) (err error) {
 		for dn := range a {
 			if s, sok := a[dn].(string); sok {
 				if _, err = w.Write(RunesToUTF8([]rune(s)...)); err != nil {
+					if err == io.EOF {
+						err = nil
+						continue
+					}
 					break
 				}
-			} else if ir, irok := a[dn].(io.Reader); irok {
-				if wfrom, _ := w.(io.ReaderFrom); wfrom != nil {
-					if _, err = wfrom.ReadFrom(ir); err == io.EOF {
-						err = nil
+				continue
+			}
+			if ir, irok := a[dn].(io.RuneReader); irok {
+				for err == nil {
+					pr, prs, prserr := ir.ReadRune()
+					if prs > 0 && (prserr == nil || prserr == io.EOF) {
+						_, prserr = w.Write(RunesToUTF8(pr))
 					}
-				} else if wto, _ := ir.(io.WriterTo); wto != nil {
-					_, err = wto.WriteTo(w)
-				} else if _, err = WriteToFunc(ir, func(b []byte) (int, error) {
-					return w.Write(b)
-				}); err != nil {
+					if prserr != nil {
+						if prserr != io.EOF {
+							err = prserr
+						}
+						break
+					}
+				}
+				if err != nil {
 					break
-				} else if ir, irok := a[dn].(io.RuneReader); irok {
+				}
+				continue
+			}
+			if ir, irok := a[dn].(io.Reader); irok {
+				if irnr, irnrok := ir.(io.RuneReader); irnrok {
 					for err == nil {
-						pr, prs, prserr := ir.ReadRune()
+						pr, prs, prserr := irnr.ReadRune()
 						if prs > 0 && (prserr == nil || prserr == io.EOF) {
 							_, err = w.Write(RunesToUTF8(pr))
 						}
@@ -67,42 +81,75 @@ func Fprint(w io.Writer, a ...interface{}) (err error) {
 							break
 						}
 					}
-				} else {
-					break
-				}
-			} else if bf, irok := a[dn].(*Buffer); irok {
-				_, err = bf.WriteTo(w)
-			} else if ir, irok := a[dn].(io.RuneReader); irok {
-				for err == nil {
-					pr, prs, prserr := ir.ReadRune()
-					if prs > 0 && (prserr == nil || prserr == io.EOF) {
-						_, err = w.Write(RunesToUTF8(pr))
+					if err != nil {
+						break
 					}
-					if prserr != nil && err == nil {
-						if prserr != io.EOF {
-							err = prserr
+					continue
+				}
+				if wfrom, _ := w.(io.ReaderFrom); wfrom != nil {
+					if _, err = wfrom.ReadFrom(ir); err != nil {
+						if err == io.EOF {
+							err = nil
+							continue
 						}
 						break
 					}
+					continue
 				}
-			} else if aa, aaok := a[dn].([]interface{}); aaok {
+				if wto, _ := ir.(io.WriterTo); wto != nil {
+					if _, err = wto.WriteTo(w); err != nil {
+						if err == io.EOF {
+							err = nil
+							continue
+						}
+						break
+					}
+					continue
+				}
+				if _, err = WriteToFunc(ir, func(b []byte) (int, error) {
+					return w.Write(b)
+				}); err != nil {
+					if err == io.EOF {
+						err = nil
+						continue
+					}
+					break
+				}
+				continue
+			}
+			if bf, irok := a[dn].(*Buffer); irok {
+				_, err = bf.WriteTo(w)
+				continue
+			}
+			if aa, aaok := a[dn].([]interface{}); aaok {
 				if len(aa) > 0 {
 					if err = Fprint(w, aa...); err != nil {
 						break
 					}
 				}
-			} else if sa, saok := a[dn].([]string); saok {
+				continue
+			}
+			if arn, arnok := a[dn].([]int32); arnok {
+				if len(arn) > 0 {
+					if err = Fprint(w, string(arn)); err != nil {
+						break
+					}
+				}
+				continue
+			}
+			if sa, saok := a[dn].([]string); saok {
 				if len(sa) > 0 {
 					if _, err = w.Write(RunesToUTF8([]rune(strings.Join(sa, ""))...)); err != nil {
 						break
 					}
 				}
-			} else {
-				if a[dn] != nil {
-					if _, err = fmt.Fprint(w, a[dn]); err != nil {
-						break
-					}
+				continue
+			}
+			if a[dn] != nil {
+				if _, err = fmt.Fprint(w, a[dn]); err != nil {
+					break
 				}
+				continue
 			}
 		}
 	}
@@ -122,13 +169,16 @@ func IsTxtPar(r rune) bool {
 var txtpars = map[rune]uint8{'\'': 1, '"': 1, '`': 1}
 
 func CopyBytes(dest []byte, desti int, src []byte, srci int) (lencopied int, destn int, srcn int) {
-	if destl, srcl := len(dest), len(src); (destl > 0 && desti < destl) && (srcl > 0 && srci < srcl) {
+	destl, srcl := len(dest), len(src)
+	if (destl > 0 && desti < destl) && (srcl > 0 && srci < srcl) {
 		if (srcl - srci) <= (destl - desti) {
 			cpyl := copy(dest[desti:desti+(srcl-srci)], src[srci:srci+(srcl-srci)])
 			srcn = srci + cpyl
 			destn = desti + cpyl
 			lencopied = cpyl
-		} else if (destl - desti) < (srcl - srci) {
+			return
+		}
+		if (destl - desti) < (srcl - srci) {
 			cpyl := copy(dest[desti:desti+(destl-desti)], src[srci:srci+(destl-desti)])
 			srcn = srci + cpyl
 			destn = desti + cpyl
