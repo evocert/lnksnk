@@ -45,6 +45,8 @@ func readSliceRune(rnrdrsslce *RuneReaderSlice, eventeof func(io.RuneReader, err
 		err = io.EOF
 		return
 	}
+
+NXTR:
 	rdrsl := len(rnrdrsslce.rnrdrs)
 	if crntrdr != nil {
 		r, size, err = crntrdr.ReadRune()
@@ -71,9 +73,11 @@ func readSliceRune(rnrdrsslce *RuneReaderSlice, eventeof func(io.RuneReader, err
 		}
 	}
 	if rdrsl > 0 {
-		rnrdrsslce.crntrdr = rnrdrsslce.rnrdrs[0]
+		crntrdr = rnrdrsslce.rnrdrs[0]
+		rnrdrsslce.crntrdr = crntrdr
 		rnrdrsslce.rnrdrs = rnrdrsslce.rnrdrs[1:]
-		return readSliceRune(rnrdrsslce, rnrdrsslce.EventEof, rnrdrsslce.crntrdr)
+		goto NXTR
+		//return readSliceRune(rnrdrsslce, rnrdrsslce.EventEof, rnrdrsslce.crntrdr)
 	}
 	err = io.EOF
 	return
