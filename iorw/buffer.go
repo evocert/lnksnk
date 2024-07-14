@@ -406,69 +406,75 @@ func (bufcur *bufferCursor) Read(p []byte) (n int, err error) {
 func (bufcur *bufferCursor) nextBytes() (bts []byte, lastBytes bool) {
 	if bufcur != nil {
 		if buff := bufcur.buff; buff != nil && bufcur.fromOffset >= 0 && (bufcur.asc || !bufcur.asc) {
-			func() {
-				buff.lck.RLock()
-				defer buff.lck.RUnlock()
-				bufs := int64(0)
-				if bfl := len(buff.buffer); bfl > 0 {
-					bufs = int64(bfl) * int64(len(buff.buffer[0]))
+			buff.lck.RLock()
+			defer buff.lck.RUnlock()
+			bufs := int64(0)
+			if bfl := len(buff.buffer); bfl > 0 {
+				bufs = int64(bfl) * int64(len(buff.buffer[0]))
+			}
+			if bufcur.asc {
+				if bufcur.fromOffset < bufcur.toOffset {
+					if bufcur.fromOffset < bufs {
+						bl := len(buff.buffer[0])
+						bfi := int((bufcur.fromOffset + 1) / int64(bl))
+						bi := int(bufcur.fromOffset % int64(bl))
+
+						if bufcur.toOffset <= int64(bl) || (bufcur.toOffset <= bufs && bufcur.toOffset > (bufs-int64(bl))) {
+							bmi := bl - int(bufcur.toOffset%int64(bl))
+							bts = buff.buffer[bfi][bi:bmi]
+						} else {
+							bts = buff.buffer[bfi][bi:bl]
+						}
+
+						bufcur.curOffset = bufcur.fromOffset
+						bufcur.fromOffset += int64(len(bts))
+						lastBytes = bufcur.fromOffset >= bufcur.toOffset
+						return
+					}
+					if bufcur.fromOffset < bufcur.buffs {
+						bts = buff.bytes[int(bufcur.fromOffset-bufs):int(bufcur.toOffset-bufs)]
+						bufcur.curOffset = bufcur.fromOffset
+						bufcur.fromOffset += int64(len(bts))
+						lastBytes = bufcur.fromOffset >= bufcur.toOffset
+						return
+					}
 				}
-				if bufcur.asc {
-					if bufcur.fromOffset < bufcur.toOffset {
-						if bufcur.fromOffset < bufs {
-							bl := len(buff.buffer[0])
-							bfi := int((bufcur.fromOffset + 1) / int64(bl))
+				lastBytes = bufcur.fromOffset >= bufcur.toOffset
+				return
+			}
+			if bufcur.toOffset > bufcur.fromOffset {
+				if bufcur.toOffset <= bufs {
+					if bl := len(buff.buffer[0]); bufcur.toOffset < int64(bl) {
+						bts = buff.buffer[0][int(bufcur.fromOffset):int(bufcur.toOffset)]
+					} else {
+						bfi := int((bufcur.toOffset) / int64(bl))
+						bmi := int(bufcur.toOffset - (int64(bl) * int64(bfi-1)))
+						if bufcur.fromOffset >= (int64(bfi-1) * int64(bl)) {
 							bi := int(bufcur.fromOffset % int64(bl))
-
-							if bufcur.toOffset <= int64(bl) || (bufcur.toOffset <= bufs && bufcur.toOffset > (bufs-int64(bl))) {
-								bmi := bl - int(bufcur.toOffset%int64(bl))
-								bts = buff.buffer[bfi][bi:bmi]
-							} else {
-								bts = buff.buffer[bfi][bi:bl]
-							}
-
-							bufcur.curOffset = bufcur.fromOffset
-							bufcur.fromOffset += int64(len(bts))
-						} else if bufcur.fromOffset < bufcur.buffs {
-							bts = buff.bytes[int(bufcur.fromOffset-bufs):int(bufcur.toOffset-bufs)]
-							bufcur.curOffset = bufcur.fromOffset
-							bufcur.fromOffset += int64(len(bts))
+							bts = buff.buffer[bfi-1][bi:bmi]
+						} else {
+							bts = buff.buffer[bfi-1][:bmi]
 						}
 					}
+					bufcur.curOffset = bufcur.toOffset - int64(len(bts))
+					bufcur.toOffset -= int64(len(bts))
 					lastBytes = bufcur.fromOffset >= bufcur.toOffset
-				} else {
-					if bufcur.toOffset > bufcur.fromOffset {
-						if bufcur.toOffset <= bufs {
-							if bl := len(buff.buffer[0]); bufcur.toOffset < int64(bl) {
-								bts = buff.buffer[0][int(bufcur.fromOffset):int(bufcur.toOffset)]
-							} else {
-								bfi := int((bufcur.toOffset) / int64(bl))
-								bmi := int(bufcur.toOffset - (int64(bl) * int64(bfi-1)))
-								if bufcur.fromOffset >= (int64(bfi-1) * int64(bl)) {
-									bi := int(bufcur.fromOffset % int64(bl))
-									bts = buff.buffer[bfi-1][bi:bmi]
-								} else {
-									bts = buff.buffer[bfi-1][:bmi]
-								}
-							}
-							bufcur.curOffset = bufcur.toOffset - int64(len(bts))
-							bufcur.toOffset -= int64(len(bts))
-						} else if bufcur.toOffset > bufs {
-							if bufcur.fromOffset > bufs {
-								bts = buff.bytes[int(bufcur.fromOffset-bufs):int(bufcur.toOffset-bufs)]
-							} else {
-								bts = buff.bytes[:int(bufcur.toOffset-bufs)]
-							}
-							bufcur.curOffset = bufcur.toOffset - int64(len(bts))
-							bufcur.toOffset -= int64(len(bts))
-						}
-					}
-					lastBytes = bufcur.fromOffset >= bufcur.toOffset
+					return
 				}
-			}()
-		} else {
-			lastBytes = true
+				if bufcur.toOffset > bufs {
+					if bufcur.fromOffset > bufs {
+						bts = buff.bytes[int(bufcur.fromOffset-bufs):int(bufcur.toOffset-bufs)]
+					} else {
+						bts = buff.bytes[:int(bufcur.toOffset-bufs)]
+					}
+					bufcur.curOffset = bufcur.toOffset - int64(len(bts))
+					bufcur.toOffset -= int64(len(bts))
+					lastBytes = bufcur.fromOffset >= bufcur.toOffset
+					return
+				}
+			}
 		}
+		lastBytes = true
 	}
 	return
 }
@@ -939,6 +945,7 @@ func (buff *Buffer) ReadRunesFrom(r interface{}) (n int64, err error) {
 							break
 						}
 					}
+					ppi = 0
 				}
 			}
 			if pnerr != nil {
@@ -1712,12 +1719,12 @@ func nextReaderBytes(bufr *BuffReader) (bts []byte, lastBytes bool) {
 	if bufr != nil {
 		if bufcur := bufr.bufcur; bufcur != nil {
 			bts, lastBytes = bufcur.nextBytes()
-		} else {
-			lastBytes = true
+			return
 		}
-	} else {
 		lastBytes = true
+		return
 	}
+	lastBytes = true
 	return
 }
 
@@ -1730,20 +1737,29 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 				for n < pl && (bufr.MaxRead > 0 || bufr.MaxRead == -1) {
 					if len(bufr.rbytes) == 0 || (len(bufr.rbytes) > 0 && len(bufr.rbytes) == bufr.rbytesi) {
 						if bufr.bufcur.curOffset == -1 {
-							if bts, btslst := nextReaderBytes(bufr); len(bts) > 0 {
+							bts, btslst := nextReaderBytes(bufr)
+							if len(bts) > 0 {
 								bufr.rbytes = bts[:]
 								bufr.rbytesi = 0
-							} else if btslst {
+								continue
+							}
+							if btslst {
 								break
 							}
-						} else {
-							if bts, btslst := nextReaderBytes(bufr); len(bts) > 0 {
-								bufr.rbytes = bts[:]
-								bufr.rbytesi = 0
-							} else if btslst {
-								break
+							continue
+						}
+						bts, btslst := nextReaderBytes(bufr)
+						if len(bts) > 0 {
+							bufr.rbytes = bts[:]
+							bufr.rbytesi = 0
+							if btslst {
+								btslst = false
 							}
 						}
+						if btslst {
+							break
+						}
+						continue
 					}
 
 					for (bufr.MaxRead > 0 || bufr.MaxRead == -1) && (pl > n) && (len(bufr.rbytes) > bufr.rbytesi) {
@@ -1773,7 +1789,7 @@ func (bufr *BuffReader) Read(p []byte) (n int, err error) {
 				}
 			}
 		}
-		if n == 0 && err == nil {
+		if n == 0 {
 			err = io.EOF
 			if dspbuf, dsprdr := bufr.DisposeBuffer, bufr.DisposeReader; dspbuf || dsprdr {
 				bufr.Close()
