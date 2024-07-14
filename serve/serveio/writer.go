@@ -15,17 +15,31 @@ type Writer interface {
 	Header() http.Header
 	Print(...interface{}) error
 	Println(...interface{}) error
+	ReadFrom(r io.Reader) (n int64, err error)
+	MaxWriteSize(int64) bool
 }
 
 type writer struct {
-	httpw  http.ResponseWriter
-	buff   *bufio.Writer
-	Status int
+	httpw   http.ResponseWriter
+	buff    *bufio.Writer
+	Status  int
+	MaxSize int64
 }
 
 func NewWriter(httpw http.ResponseWriter) (rqw *writer) {
-	rqw = &writer{httpw: httpw, Status: 200}
+	rqw = &writer{httpw: httpw, Status: 200, MaxSize: -1}
 	return
+}
+
+func (rqw *writer) MaxWriteSize(maxsize int64) bool {
+	if rqw == nil {
+		return false
+	}
+	if rqw.MaxSize == -1 {
+		rqw.MaxSize = maxsize
+		return true
+	}
+	return false
 }
 
 func (rqw *writer) ReadFrom(r io.Reader) (n int64, err error) {
@@ -54,6 +68,9 @@ func (rqw *writer) Header() http.Header {
 func (rqw *writer) WriteHeader(status int) {
 	if rqw != nil {
 		if rqw.httpw != nil {
+			if status == 0 {
+				status = rqw.Status
+			}
 			rqw.httpw.WriteHeader(status)
 		}
 	}
@@ -76,7 +93,8 @@ func (rqw *writer) buffer() *bufio.Writer {
 	if rqw != nil {
 		if buff := rqw.buff; buff == nil {
 			if rqw.httpw != nil {
-				buff = bufio.NewWriterSize(rqw.httpw, 32768*2)
+				bfsize := 32768 * 2
+				buff = bufio.NewWriterSize(rqw.httpw, bfsize)
 				rqw.buff = buff
 			}
 			return buff
@@ -102,15 +120,30 @@ func (rqw *writer) Close() (err error) {
 }
 
 func (rqw *writer) Write(p []byte) (n int, err error) {
-	if rqw != nil {
-		n, err = rqw.buffer().Write(p)
+	if pl := len(p); rqw != nil && pl > 0 {
+		if buf := rqw.buffer(); buf != nil {
+			maxsize := rqw.MaxSize
+			if maxsize > 0 {
+				if int64(pl) >= maxsize {
+					pl = int(maxsize)
+				}
+				if n, err = rqw.buffer().Write(p[:pl]); n > 0 {
+					rqw.MaxSize -= int64(n)
+				}
+				return
+			}
+			if maxsize == -1 {
+				n, err = rqw.buffer().Write(p)
+				return
+			}
+		}
 	}
-	return
+	return 0, io.EOF
 }
 
 func (rqw *writer) Print(a ...interface{}) (err error) {
 	if rqw != nil {
-		if err = iorw.Fprint(rqw.buffer(), a...); err == nil {
+		if err = iorw.Fprint(rqw, a...); err == nil {
 			err = rqw.Flush()
 		}
 	}
@@ -119,7 +152,7 @@ func (rqw *writer) Print(a ...interface{}) (err error) {
 
 func (rqw *writer) Println(a ...interface{}) (err error) {
 	if rqw != nil {
-		if err = iorw.Fprintln(rqw.buffer(), a...); err != nil {
+		if err = iorw.Fprintln(rqw, a...); err != nil {
 			err = rqw.Flush()
 		}
 	}
