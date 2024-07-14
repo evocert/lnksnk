@@ -347,7 +347,7 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 	if vm != nil && vm.vm != nil {
 		var cdes = ""
 		var chdprgm *ja.Program = nil
-		var setchdprgm func(interface{})
+		var setchdprgm func(interface{}, error, error)
 		var ai, ail = 0, len(a)
 
 		var errfound func(...interface{}) error = nil
@@ -358,7 +358,7 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 				}
 				ail--
 				a = append(a[:ai], a[ai+1:]...)
-			} else if setchdpgrmd, setchdpgrmdok := a[ai].(func(interface{})); setchdpgrmdok {
+			} else if setchdpgrmd, setchdpgrmdok := a[ai].(func(interface{}, error, error)); setchdpgrmdok {
 				if setchdprgm == nil && setchdpgrmd != nil {
 					setchdprgm = setchdpgrmd
 				}
@@ -384,13 +384,19 @@ func (vm *VM) Eval(a ...interface{}) (val interface{}, err error) {
 					var cde = iorw.NewMultiArgsReader(a...)
 					defer cde.Close()
 					cdes, _ = cde.ReadAll()
-					if prsd, prsderr := parser.ParseFile(nil, "", cdes, 0); prsderr == nil {
+					if prsd, prsderr := parser.ParseFile(nil, "", cdes, 0, parser.WithDisableSourceMaps); prsderr == nil {
 						if p, perr = ja.CompileAST(prsd, false); perr == nil && p != nil {
 							if setchdprgm != nil {
-								setchdprgm(p)
+								setchdprgm(p, nil, nil)
 							}
 						}
+						if p == nil && perr != nil && setchdprgm == nil {
+							setchdprgm(nil, nil, perr)
+						}
 					} else {
+						if setchdprgm != nil {
+							setchdprgm(nil, prsderr, nil)
+						}
 						p, perr = nil, prsderr
 					}
 				}
