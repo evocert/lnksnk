@@ -151,7 +151,7 @@ func (mltiargsr *MultiArgsReader) Read(p []byte) (n int, err error) {
 					if perr != nil {
 						if perr != io.EOF {
 							err = perr
-							break
+							continue
 						}
 					}
 					if pn == 0 {
