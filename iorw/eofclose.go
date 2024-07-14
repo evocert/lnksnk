@@ -186,7 +186,7 @@ func (eofclsr *EOFCloseSeekReader) InternalReadln(keeperr bool) (s string, err e
 		}
 		if rnerr != nil {
 			err = rnerr
-			if rnsi > 0 && (err == nil || err == io.EOF) {
+			if rnsi > 0 {
 				s += string(rns[:rnsi])
 				rnsi = 0
 			}
@@ -259,7 +259,7 @@ func (eofclsr *EOFCloseSeekReader) internalRead(p []byte) (n int, err error) {
 			eofclsr.disposeReader()
 		}
 		return
-	} else if eofclsr != nil {
+	} else {
 		if r := eofclsr.r; r != nil {
 			if pl := len(p); pl > 0 {
 				if eofclsr.maxRead > 0 {
