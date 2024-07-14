@@ -238,14 +238,14 @@ func FReadRunesEOL(rdr io.RuneReader, txtpar rune, eolrns ...rune) (rnsline []ru
 					} else {
 						if rerr != nil {
 							if rerr != io.EOF {
-								err = nil
+								err = rerr
 							}
 						}
 						break
 					}
-				} else if rerr != nil {
+				} else {
 					if rerr != io.EOF {
-						err = nil
+						err = rerr
 					}
 					break
 				}
@@ -318,7 +318,7 @@ func ReadRunesEOL(rdr func() (r rune, size int, err error), txtpar rune, foundRu
 						}
 						return
 					}
-				} else if rerr != nil {
+				} else {
 					err = rerr
 					if rerr == io.EOF {
 						foundRunes(true, true, rnsline...)
@@ -513,7 +513,7 @@ func ReadLine(rs ...interface{}) (s string, err error) {
 				}
 				if rnerr != nil {
 					err = rnerr
-					if rnsi > 0 && (err == nil || err == io.EOF) {
+					if rnsi > 0 {
 						if err == io.EOF {
 							err = nil
 						}
@@ -838,7 +838,7 @@ func ToData(format string, a ...interface{}) (data interface{}, err error) {
 						lsts[tknlvl] = append(lsts[tknlvl], nil)
 					}
 				}
-			} else if tknerr != nil {
+			} else {
 				if tknerr == io.EOF {
 					if tknlvl > -1 {
 						data = nil
