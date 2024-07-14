@@ -34,6 +34,12 @@ type runesreaderuntil struct {
 	rmngrns  []rune
 }
 
+type ReadRuneFunc func() (rune, int, error)
+
+func (rdrnefunc ReadRuneFunc) ReadRune() (rune, int, error) {
+	return rdrnefunc()
+}
+
 func RunesReaderUntil(r interface{}, eof ...interface{}) (rdr UntilRunesReader) {
 	var rd io.RuneReader = nil
 	if rd, _ = r.(io.RuneReader); rd == nil {
