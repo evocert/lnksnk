@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -425,10 +424,6 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 		defer Out.Close()
 	}
 
-	/*var prsevalbuf *iorw.Buffer = nil
-	if prsevalbuf != nil {
-		defer prsevalbuf.Close()
-	}*/
 	var terminal *terminals = nil
 	if terminal != nil {
 		defer terminal.Close()
@@ -816,14 +811,4 @@ func init() {
 			go func(term *terminals) { term.Close() }(termref)
 		}
 	}()
-}
-
-var buzygc = false
-
-func gc() {
-	if !buzygc {
-		buzygc = true
-		runtime.GC()
-		defer func() { buzygc = false }()
-	}
 }
