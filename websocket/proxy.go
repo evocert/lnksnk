@@ -6,14 +6,13 @@ package websocket
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
-
-	"golang.org/x/net/proxy"
 )
 
 type netDialerFunc func(network, addr string) (net.Conn, error)
@@ -23,7 +22,7 @@ func (fn netDialerFunc) Dial(network, addr string) (net.Conn, error) {
 }
 
 func init() {
-	proxy.RegisterDialerType("http", func(proxyURL *url.URL, forwardDialer proxy.Dialer) (proxy.Dialer, error) {
+	proxy_RegisterDialerType("http", func(proxyURL *url.URL, forwardDialer proxy_Dialer) (proxy_Dialer, error) {
 		return &httpProxyDialer{proxyURL: proxyURL, forwardDial: forwardDialer.Dial}, nil
 	})
 }
@@ -70,8 +69,18 @@ func (hpd *httpProxyDialer) Dial(network string, addr string) (net.Conn, error) 
 		return nil, err
 	}
 
+	// Close the response body to silence false positives from linters. Reset
+	// the buffered reader first to ensure that Close() does not read from
+	// conn.
+	// Note: Applications must call resp.Body.Close() on a response returned
+	// http.ReadResponse to inspect trailers or read another response from the
+	// buffered reader. The call to resp.Body.Close() does not release
+	// resources.
+	br.Reset(bytes.NewReader(nil))
+	_ = resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		conn.Close()
+		_ = conn.Close()
 		f := strings.SplitN(resp.Status, " ", 2)
 		return nil, errors.New(f[1])
 	}

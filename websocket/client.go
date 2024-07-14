@@ -17,8 +17,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"golang.org/x/net/proxy"
 )
 
 // ErrBadHandshake is returned when the server response to opening handshake is
@@ -305,7 +303,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 			return nil, nil, err
 		}
 		if proxyURL != nil {
-			dialer, err := proxy.FromURL(proxyURL, netDialerFunc(netDial))
+			dialer, err := proxy_FromURL(proxyURL, netDialerFunc(netDial))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -392,7 +390,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 		}
 	}
 
-	if resp.StatusCode != http.StatusSwitchingProtocols ||
+	if resp.StatusCode != 101 ||
 		!tokenListContainsValue(resp.Header, "Upgrade", "websocket") ||
 		!tokenListContainsValue(resp.Header, "Connection", "upgrade") ||
 		resp.Header.Get("Sec-Websocket-Accept") != computeAcceptKey(challengeKey) {
@@ -429,7 +427,7 @@ func (d *Dialer) DialContext(ctx context.Context, urlStr string, requestHeader h
 
 func cloneTLSConfig(cfg *tls.Config) *tls.Config {
 	if cfg == nil {
-		return &tls.Config{MinVersion: tls.VersionTLS12}
+		return &tls.Config{}
 	}
 	return cfg.Clone()
 }
