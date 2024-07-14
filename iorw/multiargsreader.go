@@ -77,6 +77,11 @@ func (mltiargsr *MultiArgsReader) nextrdr() (nxtrdr io.Reader, nxtrnrdr io.RuneR
 					nxtrdr, _ = nxtrnrdr.(io.Reader)
 					return
 				}
+				if s, _ := d.([]int32); len(s) > 0 {
+					nxtrdr = strings.NewReader(string(s))
+					nxtrnrdr, _ = nxtrdr.(io.RuneReader)
+					return
+				}
 				if dtpe := reflect.TypeOf(d); validargrdrkind[dtpe.Kind()] {
 					nxtrdr = strings.NewReader(fmt.Sprint(d))
 					nxtrnrdr, _ = nxtrdr.(io.RuneReader)
