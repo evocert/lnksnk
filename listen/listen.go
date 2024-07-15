@@ -72,6 +72,10 @@ type listen struct {
 }
 
 func (lsnt *listen) Serve(network string, addr string, tlsconf ...*tls.Config) {
+	if addr == "" && network != "" {
+		addr = network
+		network = "tcp"
+	}
 	if lsnt != nil {
 		Serve(network, addr, lsnt.handler, tlsconf...)
 	}
