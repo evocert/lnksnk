@@ -11,6 +11,7 @@ import (
 	"github.com/evocert/lnksnk/iorw"
 	"github.com/evocert/lnksnk/listen"
 	"github.com/evocert/lnksnk/resources"
+	"github.com/evocert/lnksnk/screen"
 	"github.com/evocert/lnksnk/serve"
 
 	webview "github.com/webview/webview_go"
@@ -65,15 +66,79 @@ func App(args ...string) {
 		resources.GLOBALRSNG().FS().MKDIR("/"+appName+"/env", appEnvPath)
 		appEnvPath = "/" + appName + "/env/"
 	}
-	if w := webview.New(false); w != nil {
+	if w := webview.New(true); w != nil {
+		width, height := screen.Size()
+		w.SetSize(width, height, webview.HintMax)
+		w.SetTitle("LNKSNK - WEBAPP")
 		defer w.Destroy()
-		w.SetTitle("Bind Example")
-		w.SetTitle("Test this")
+		var wepappmap map[string]interface{} = nil
+		wepappmap = map[string]interface{}{
+			"webapp": map[string]interface{}{
+				"navigate": func(nav string) {
+					if prtci := strings.Index(nav, "://"); prtci > -1 {
+						proto := nav[:prtci]
+						nav = nav[prtci+len("://"):]
+						if proto == "http" || proto == "https" {
+							w.Navigate(proto + "://" + nav)
+						}
+						return
+					}
+					if nav != "" {
+						bufout := iorw.NewBuffer()
+						defer bufout.Close()
+						serve.ProcessIORequest(nav, bufout, nil, wepappmap)
+						bufr := bufout.Reader(true)
+						fromoffset := bufout.IndexOf("\r\n\r\n")
+						fromoffset += int64(len("\r\n\r\n") + 1)
 
-		if err := serve.ProcessRequestPath("/active:"+appEnvPath[1:]+appName+".conf.js", nil); err != nil {
+						w.SetHtml(bufr.SubString(fromoffset))
+						return
+
+					}
+				},
+				"host":     "",
+				"port":     "",
+				"setTitle": w.SetTitle,
+				"maxize": func() {
+					w.SetSize(width, height, webview.HintNone)
+
+				},
+				"fullScreen": func() {
+
+					w.Eval(`try{ openFullscreen(document.documentElement);} catch(e){
+						var openFullscreen=(elem)=>{
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) { /* Safari */
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { /* IE11 */
+    elem.msRequestFullscreen();
+  }
+}
+  openFullscreen(document.documentElement);
+					}`)
+				},
+				"restoreScreen": func() {
+					w.Eval(`try{ closeFullscreen();} catch(e){
+						var closeFullscreen=()=>{
+  if (document.exitFullscreen) {
+    document.exitFullscreen();
+  } else if (document.webkitExitFullscreen) { /* Safari */
+    document.webkitExitFullscreen();
+  } else if (document.msExitFullscreen) { /* IE11 */
+    document.msExitFullscreen();
+  }
+}
+  openFullscreen(document.documentElement);
+					}`)
+				},
+			},
+		}
+		if err := serve.ProcessRequestPath("/active:"+appEnvPath[1:]+appName+".conf.js", wepappmap); err != nil {
 			println(err.Error())
 		}
 		w.Run()
+		done <- os.Interrupt
 	} else {
 		done <- os.Interrupt
 	}

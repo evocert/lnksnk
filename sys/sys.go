@@ -19,6 +19,7 @@ import (
 	_ "github.com/evocert/lnksnk/fonts"
 	"github.com/evocert/lnksnk/sys/app"
 	"github.com/evocert/lnksnk/sys/srv"
+	"github.com/evocert/lnksnk/sys/webapp"
 	_ "github.com/evocert/lnksnk/ui"
 )
 
@@ -37,7 +38,7 @@ func main() {
 			appfunc = app.App
 		} else if strings.EqualFold(args[1], "webapp") {
 			args = append(args[:1], args[1:]...)
-			//appfunc = webapp.App
+			appfunc = webapp.App
 		} else {
 			appfunc = srv.Serve
 		}

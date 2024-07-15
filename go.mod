@@ -34,6 +34,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
+	github.com/lxn/win v0.0.0-20210218163916-a377121e959e // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/onsi/ginkgo/v2 v2.19.0 // indirect
@@ -57,6 +58,7 @@ require (
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
+	github.com/fstanis/screenresolution v0.0.0-20190527020317-869904d15333
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/microsoft/go-mssqldb v1.7.2
@@ -65,6 +67,8 @@ require (
 	github.com/sijms/go-ora/v2 v2.8.19
 	github.com/tdewolff/minify/v2 v2.20.37
 	github.com/webview/webview_go v0.0.0-20240220051247-56f456ca3a43
+	github.com/zserge/lorca v0.1.10
+	golang.org/x/term v0.22.0
 	golang.org/x/text v0.16.0
 	modernc.org/sqlite v1.30.2
 )

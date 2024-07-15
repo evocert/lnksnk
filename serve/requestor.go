@@ -59,6 +59,24 @@ func ProcessRequesterConn(conn net.Conn, activemap map[string]interface{}) {
 	}
 }
 
+func ProcessIORequest(path string, stdout io.WriteCloser, stdin io.ReadCloser, activemap map[string]interface{}) {
+	if stdin == nil {
+		buf := iorw.NewBuffer()
+		if path == "" {
+			path = "/"
+		}
+		buf.Println("GET " + strings.Replace(path, "\\", "/", -1) + " HTTP/1.1")
+		buf.Println()
+		stdin = buf.Reader(true)
+	}
+	if rqst, rqsterr := http.ReadRequest(bufio.NewReaderSize(stdin, 65536)); rqsterr != nil {
+		stdin.Close()
+		return
+	} else if rqst != nil {
+		ProcessRequest(path, rqst, NewResponseWriter(rqst, stdout), activemap)
+	}
+}
+
 func ServeHTTPRequest(w http.ResponseWriter, r *http.Request) {
 	ProcessRequest(r.URL.Path, r, w, nil)
 }
