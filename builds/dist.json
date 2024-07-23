@@ -228,6 +228,12 @@
                 "FirstClass": false
         },
         {
+                "GOOS": "openbsd",
+                "GOARCH": "ppc64",
+                "CgoSupported": false,
+                "FirstClass": false
+        },
+        {
                 "GOOS": "plan9",
                 "GOARCH": "386",
                 "CgoSupported": false,
