@@ -14,9 +14,7 @@ type codeeventreader struct {
 	CodeFoundEvent     func(bool) error
 	CodePreRunesEvent  func(foundcode bool, rnsl int, rns ...rune) (rnserr error)
 	CodePostRunesEvent func(rnsl int, rns ...rune) (rnserr error)
-	cmmntevtrdrs       []*commentevtreader
-	cmntrdx            int
-	cmntrdrsmap        map[int]*commentevtreader
+	cmntevtrdrs        map[string]*commentevtreader
 	cmntrdrfound       *commentevtreader
 }
 
@@ -53,17 +51,6 @@ func (cmntevtrdr *commentevtreader) preResetEvent(prel, postl int, prelbl, postl
 		cmntbuf.Clear()
 	}
 	if cdeevtrdr != nil {
-		if cmntrdrsmap := cdeevtrdr.cmntrdrsmap; cmntrdrsmap != nil {
-			for cmix, cmntrdr := range cmntrdrsmap {
-				delete(cmntrdrsmap, cmix)
-				if cmntrdr == cmntevtrdr {
-					cdeevtrdr.cmntrdx = cmix
-					continue
-				}
-				cmntrdr.resetPre(true)
-				cmntrdr.resetPost(true)
-			}
-		}
 		cdeevtrdr.cmntrdrfound = cmntevtrdr
 	}
 	return
@@ -119,9 +106,8 @@ func (cmntevtrdr *commentevtreader) postResetEvent(prel, postl int, prelbl, post
 		}
 	}
 	if cdeevtrdr != nil {
-		if cmntrdrfound := cdeevtrdr.cmntrdrfound; cmntrdrfound == cmntevtrdr && cdeevtrdr.cmmntevtrdrs[cdeevtrdr.cmntrdx] == cmntevtrdr {
+		if cmntrdrfound := cdeevtrdr.cmntrdrfound; cmntrdrfound == cmntevtrdr {
 			cdeevtrdr.cmntrdrfound = nil
-			cdeevtrdr.cmntrdx = -1
 		}
 	}
 	return
@@ -138,7 +124,7 @@ func (cmntevtrdr *commentevtreader) postRunesEvent(resetlbl bool, rnsl int, rns 
 }
 
 func newCodeEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) (cdeevtrdr *codeeventreader) {
-	cdeevtrdr = &codeeventreader{ParseEventReader: newParseEventReader(prelabel, postlabel, rnrdrs...), cmntrdrsmap: map[int]*commentevtreader{}, cmntrdx: -1}
+	cdeevtrdr = &codeeventreader{ParseEventReader: newParseEventReader(prelabel, postlabel, rnrdrs...), cmntevtrdrs: map[string]*commentevtreader{}}
 
 	cdeevtrdr.PostCanResetTextPar = func(prevr, r rune) bool {
 		return (cdeevtrdr.cmntrdrfound == nil || cdeevtrdr.cmntrdrfound.ParseStage() == PreStage) && prevr != '\\' && cdeevtrdr.PostTxtr == r
@@ -156,6 +142,14 @@ func newCodeEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) (cd
 		return
 	}
 
+	var crntevtrdrs [][]rune = nil
+	var crntkrns []rune = nil
+	var crntktsti = 1
+	var cdetxt = rune(0)
+	var lstcdetxt = rune(0)
+	var prvcder = rune(0)
+	var cdepostrunsevt func(rnsl int, rns ...rune) (rnserr error) = nil
+	var cmntrdrfound *commentevtreader = nil
 	cdeevtrdr.PostRunesEvent = func(resetlbl bool, rnsl int, rns ...rune) (rnserr error) {
 		if !cdeevtrdr.hsecde {
 			cdeevtrdr.hsecde = true
@@ -168,96 +162,128 @@ func newCodeEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) (cd
 				cdeevtrdr.FoundCode = true
 			}
 		}
-		cdepostrunsevt := cdeevtrdr.CodePostRunesEvent
-		if cmmntevtrdrs := cdeevtrdr.cmmntevtrdrs; len(cmmntevtrdrs) > 0 {
-		fndrdr:
-			if cdeevtrdr.cmntrdrfound != nil {
-				for rn, r := range rns {
-					if rnserr = cdeevtrdr.cmntrdrfound.parseRune(r); rnserr != nil {
-						return
+		cmntrdrfound = cdeevtrdr.cmntrdrfound
+		if cdepostrunsevt == nil {
+			cdepostrunsevt = cdeevtrdr.CodePostRunesEvent
+		}
+		cmntevtrdrs := cdeevtrdr.cmntevtrdrs
+		if len(cmntevtrdrs) > 0 {
+		redo:
+			for rn, r := range rns {
+				if cdetxt > 0 {
+					if cdetxt == r && prvcder != '\\' {
+						cdetxt = 0
+						lstcdetxt = 0
 					}
-					if cdeevtrdr.cmntrdrfound == nil {
-						rns = rns[rn+1:]
-						if rnsl := len(rns); rnsl == 0 {
+				} else if cdetxt == 0 {
+					if prvcder != '\\' && iorw.IsTxtPar(r) {
+						cdetxt = r
+						lstcdetxt = r
+					}
+				}
+				prvcder = r
+				if cmntrdrfound != nil {
+					lststge := cmntrdrfound.ParseStage()
+					rnserr = cmntrdrfound.parseRune(r)
+					if lststge != cmntrdrfound.ParseStage() {
+						if cmntrdrfound.lbli[1] > 0 {
+
+						}
+						cmntrdrfound = cdeevtrdr.cmntrdrfound
+						rns = append(rns[:rn], rns[rn+1:]...)
+						if rnsl = len(rns); rnsl == 0 {
 							return
 						}
-						goto unmtchdrdr
+						goto redo
 					}
 					continue
 				}
-				return
-			}
-		matchdrdr:
-			if len(cdeevtrdr.cmntrdrsmap) > 0 {
-				for rn, r := range rns {
-					for idx, vcmntevtr := range cdeevtrdr.cmntrdrsmap {
-						lbli := vcmntevtr.lbli[0]
-						if rnserr = vcmntevtr.parseRune(r); rnserr != nil {
-							return
+				if cdetxt == 0 && r != lstcdetxt {
+					if len(crntevtrdrs) == 0 {
+						for cmntk := range cmntevtrdrs {
+							if cmtktst := []rune(cmntk); cmtktst[0] == r {
+								crntevtrdrs = append(crntevtrdrs, cmtktst)
+								if len(crntkrns) < crntktsti {
+									crntkrns = append(crntkrns, r)
+								}
+							}
 						}
-						if cdeevtrdr.cmntrdrfound != nil {
+						if len(crntevtrdrs) > 0 {
 							rns = rns[rn+1:]
-							if rnsl := len(rns); rnsl == 0 {
+							if rnsl = len(rns); rnsl == 0 {
 								return
 							}
-							goto fndrdr
+							goto redo
 						}
-						if vcmntevtr.lbli[0] == 0 {
-							delete(cdeevtrdr.cmntrdrsmap, idx)
-							vcmntevtr.resetPre(true)
-							vcmntevtr.resetPost(true)
-							if len(cdeevtrdr.cmntrdrsmap) == 0 {
-								if lbli > 0 {
-									if cdepostrunsevt != nil {
-										if rnserr = cdepostrunsevt(lbli, vcmntevtr.prelbl[:lbli]...); rnserr != nil {
+						continue
+					}
+				recheck:
+					fndval := false
+					for cmkn, cmntrnsk := range crntevtrdrs {
+						if cmntkl := len(cmntrnsk); cmntkl >= len(crntkrns) {
+							if cmntrnsk[crntktsti] == r {
+								if !fndval {
+									fndval = true
+								}
+								if len(crntkrns) <= crntktsti {
+									crntkrns = append(crntkrns, r)
+								}
+								if len(crntevtrdrs) == 1 {
+									if crntks := string(crntevtrdrs[cmkn]); string(crntkrns) == crntks && cdeevtrdr.cmntrdrfound == nil {
+										crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
+										cmntrdrfound = cdeevtrdr.cmntevtrdrs[crntks]
+										cmntrdrfound.SwapParseState()
+										cdeevtrdr.cmntrdrfound = cmntrdrfound
+										crntktsti = 1
+										crntkrns = nil
+										rns = append(rns[:rn], rns[rn+1:]...)
+										if rnsl = len(rns); rnsl == 0 {
 											return
 										}
+										goto redo
 									}
+									crntkrns = crntkrns[:len(crntkrns)-1]
+									crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
+									goto nomore
 								}
-								rns = rns[rn:]
-								if rnsl := len(rns); rnsl == 0 {
+								continue
+							}
+						}
+						crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
+						goto recheck
+					}
+					if fndval {
+						crntktsti++
+					}
+				nomore:
+					crntevtrdrsl := len(crntevtrdrs)
+					if crntevtrdrsl == 0 {
+						crntktsti = 1
+						fndval = false
+						rns = append(rns[:rn], rns[rn+1:]...)
+						if len(crntkrns) > 0 {
+							crntkrns = append(crntkrns, r)
+							if cdepostrunsevt != nil {
+								if rnserr = cdepostrunsevt(len(crntkrns), crntkrns...); rnserr != nil {
 									return
 								}
-								goto unmtchdrdr
 							}
+							crntkrns = nil
 						}
-					}
-				}
-				if len(cdeevtrdr.cmntrdrsmap) > 0 {
-					return
-				}
-			}
-		unmtchdrdr:
-
-			for rn, r := range rns {
-				for idx, vcmntevtr := range cmmntevtrdrs {
-					if cdeevtrdr.cmntrdrsmap[idx] == nil {
-						if rnserr = vcmntevtr.parseRune(r); rnserr != nil {
+						if rnsl = len(rns); rnsl == 0 {
 							return
 						}
-						if cdeevtrdr.cmntrdrfound != nil {
-							rns = rns[rn+1:]
-							if rnsl := len(rns); rnsl == 0 {
-								return
-							}
-							goto fndrdr
-						}
-						if vcmntevtr.lbli[0] > 0 && cdeevtrdr.cmntrdrsmap[idx] == nil {
-							cdeevtrdr.cmntrdrsmap[idx] = vcmntevtr
-						}
 					}
 				}
-				if len(cdeevtrdr.cmntrdrsmap) > 0 {
-					rns = rns[rn+1:]
-					if rnsl = len(rns); rnsl == 0 {
-						return
-					}
-					goto matchdrdr
+				if lstcdetxt > 0 {
+					lstcdetxt = 0
 				}
 			}
 		}
-		if cdepostrunsevt != nil {
-			rnserr = cdepostrunsevt(rnsl, rns...)
+		if rnsl > 0 {
+			if cmntrdrfound == nil && cdepostrunsevt != nil {
+				rnserr = cdepostrunsevt(rnsl, rns...)
+			}
 		}
 		return
 	}
@@ -283,9 +309,9 @@ type PostCommentEventFunc func(imprtbuf *iorw.Buffer, prelbl, postlbl []rune) (p
 func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 	if cdeevtrdr != nil {
 		al := len(a)
-		cmntsl := len(cdeevtrdr.cmmntevtrdrs)
 		canpostcontent := false
 		var cmmntpostevent PostCommentEventFunc = nil
+		cmntevtrdrs := cdeevtrdr.cmntevtrdrs
 		for al > 0 {
 			if canpostd, canpstdok := a[0].(bool); canpstdok {
 				a = a[1:]
@@ -330,7 +356,6 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 				continue
 			}
 			if cdecmntevtr, _ := a[0].(*commentevtreader); cdecmntevtr != nil {
-				cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, cdecmntevtr)
 				if canpostcontent {
 					cdecmntevtr.postcmnt = canpostcontent
 					canpostcontent = false
@@ -339,7 +364,6 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 					cdecmntevtr.postcmntevt = cmmntpostevent
 					cmmntpostevent = nil
 				}
-				cmntsl++
 				a = a[1:]
 				al--
 				continue
@@ -353,14 +377,17 @@ func (cdeevtrdr *codeeventreader) AddCommentsEventReader(a ...interface{}) {
 				if postlbl := a[0].(string); postlbl != "" {
 					a = a[1:]
 					al--
-					cdeevtrdr.cmmntevtrdrs = append(cdeevtrdr.cmmntevtrdrs, newCmntEvtReader(cdeevtrdr, prelbl, postlbl, cmmntpostevent, canpostcontent))
+					if cmntevtrdrs == nil {
+						cmntevtrdrs = map[string]*commentevtreader{}
+						cdeevtrdr.cmntevtrdrs = cmntevtrdrs
+					}
+					cmntevtrdrs[prelbl] = newCmntEvtReader(cdeevtrdr, prelbl, postlbl, cmmntpostevent, canpostcontent)
 					if canpostcontent {
 						canpostcontent = false
 					}
 					if cmmntpostevent != nil {
 						cmmntpostevent = nil
 					}
-					cmntsl++
 					continue
 				}
 				continue
