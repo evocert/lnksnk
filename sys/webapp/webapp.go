@@ -67,10 +67,10 @@ func App(args ...string) {
 		appEnvPath = "/" + appName + "/env/"
 	}
 	if w := webview.New(true); w != nil {
+		defer w.Destroy()
 		width, height := screen.Size()
 		w.SetSize(width, height, webview.HintMax)
 		w.SetTitle("LNKSNK - WEBAPP")
-		defer w.Destroy()
 		var wepappmap map[string]interface{} = nil
 		wepappmap = map[string]interface{}{
 			"webapp": map[string]interface{}{
@@ -88,18 +88,14 @@ func App(args ...string) {
 						defer bufout.Close()
 						serve.ProcessIORequest(nav, bufout, nil, wepappmap)
 						bufr := bufout.Reader(true)
-						fromoffset := bufout.IndexOf("\r\n\r\n")
-						fromoffset += int64(len("\r\n\r\n") + 1)
-
-						w.SetHtml(bufr.SubString(fromoffset))
+						w.SetHtml(bufr.SubString(bufout.IndexOf("\r\n\r\n") + int64(len("\r\n\r\n")+1)))
 						return
-
 					}
 				},
 				"host":     "",
 				"port":     "",
 				"setTitle": w.SetTitle,
-				"maxize": func() {
+				"maximize": func() {
 					w.SetSize(width, height, webview.HintNone)
 
 				},
