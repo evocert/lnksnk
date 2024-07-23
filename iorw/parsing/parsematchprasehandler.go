@@ -13,7 +13,7 @@ type MatchPhraseHandler struct {
 	prefixes         map[string]interface{}
 	prefixbufs       map[string]*iorw.Buffer
 	mtchthis         map[string]interface{}
-	FoundPhraseEvent func(prefix, postfix, phrase string, result interface{}) (nxtrslt interface{})
+	FoundPhraseEvent func(matchd bool, prefix, postfix, phrase string, result interface{}) (nxtrslt interface{})
 }
 
 func NewMatchPhraseHandler(rdr io.RuneReader, prepostfixes ...string) (mtchphrshndl *MatchPhraseHandler) {
@@ -124,10 +124,18 @@ func (mtchphrshndl *MatchPhraseHandler) MatchPhraseEvent(matchedphrase string, r
 			if postfxs, _ := postfx.(string); postfxs != "" {
 				mtchphrshndl.ReadUntil(phrsbuf, rplcerdr, postfxs, func(postfix string) {
 					if mtchphrshndl.MatchThis(phrsbuf, prefix, postfxs, mtchthis, func(mtchprefix, mtchpostfix, mtchkey string, value interface{}) {
-						nxtrdr = fndphrsevt(mtchprefix, mtchpostfix, mtchkey, value)
+						nxtrdr = fndphrsevt(true, mtchprefix, mtchpostfix, mtchkey, value)
 					}) {
 						return
 					}
+					if !phrsbuf.Empty() {
+						nxtrdr = fndphrsevt(false, prefix, postfxs, phrsbuf.String(), nil)
+					}
+				}, func() {
+					if !phrsbuf.Empty() {
+						rplcerdr.PreAppend(phrsbuf.Reader(true))
+					}
+					nxtrdr = prefix
 				})
 				return
 			}
@@ -139,7 +147,7 @@ func (mtchphrshndl *MatchPhraseHandler) MatchPhraseEvent(matchedphrase string, r
 	return
 }
 
-func (mtchphrshndl *MatchPhraseHandler) ReadUntil(phrsbuf *iorw.Buffer, rplcrdr *iorw.ReplaceRuneReader, postfix string, FoundEof func(fndpostfix string)) (found bool) {
+func (mtchphrshndl *MatchPhraseHandler) ReadUntil(phrsbuf *iorw.Buffer, rplcrdr *iorw.ReplaceRuneReader, postfix string, FoundEof func(fndpostfix string), noeoffound func()) (found bool) {
 	if mtchphrshndl != nil && postfix != "" && FoundEof != nil && phrsbuf != nil {
 		if rplcrdr == nil {
 			if rplcrdr = mtchphrshndl.rplcrdr; rplcrdr == nil {
@@ -152,6 +160,10 @@ func (mtchphrshndl *MatchPhraseHandler) ReadUntil(phrsbuf *iorw.Buffer, rplcrdr 
 		if rplcrdr.FoundEOF() {
 			FoundEof(postfix)
 			found = true
+			return
+		}
+		if noeoffound != nil {
+			noeoffound()
 		}
 	}
 	return
