@@ -23,6 +23,19 @@ func MinifyJS(out io.Writer, rdr io.Reader) (err error) {
 var minifyhtml *minify.M = nil
 var minifyjs *minify.M = nil
 
+type codeerr struct {
+	err string
+	*iorw.Buffer
+}
+
+func (cderr *codeerr) Error() string {
+	return cderr.err
+}
+
+func (cderr *codeerr) Code() string {
+	return cderr.String()
+}
+
 func init() {
 	minifyjs = minify.New()
 	minifyjs.AddFunc("application/javascript", js.Minify)
@@ -31,21 +44,32 @@ func init() {
 	minifyhtml.AddFunc("text/css", css.Minify)
 	minifyhtml.AddFunc("text/html", html.Minify)
 	minifyhtml.AddFunc("image/svg+xml", svg.Minify)
-	parsing.DefaultMinifyPsv = func(psvext string, psvbuf *iorw.Buffer, psvrdr io.Reader) {
+	parsing.DefaultMinifyPsv = func(psvext string, psvbuf *iorw.Buffer, psvrdr io.Reader) error {
 		if psvext == ".html" {
 			if psvrdr == nil {
 				psvrdr = psvbuf.Clone(true).Reader(true)
 			}
-			MinifyHTML(psvbuf, psvrdr)
+			return MinifyHTML(psvbuf, psvrdr)
 		}
+		return nil
 	}
 
-	parsing.DefaultMinifyCde = func(cdeext string, cdebuf *iorw.Buffer, cderdr io.Reader) {
+	parsing.DefaultMinifyCde = func(cdeext string, cdebuf *iorw.Buffer, cderdr io.Reader) (err error) {
 		if cdeext == ".js" {
+			cderr := &codeerr{Buffer: iorw.NewBuffer()}
+
 			if cderdr == nil {
-				cderdr = cdebuf.Clone(true).Reader(true)
+				cderr.ReadFrom(cdebuf.Clone(true).Reader(true))
+				cderdr = cderr.Reader()
+			} else {
+				cderr.ReadFrom(cderdr)
+				cderdr = cderr.Reader(true)
 			}
-			MinifyJS(cdebuf, cderdr)
+			if err = MinifyJS(cdebuf, cderdr); err != nil {
+				cderr.err = err.Error()
+				err = cderr
+			}
 		}
+		return
 	}
 }
