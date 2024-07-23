@@ -230,6 +230,6 @@ func ParseSourceLoader(path string) (source []byte, err error) {
 	return
 }
 
-var DefaultMinifyPsv func(psvext string, psvbuf *iorw.Buffer, psvrdr io.Reader) = nil
+var DefaultMinifyPsv func(psvext string, psvbuf *iorw.Buffer, psvrdr io.Reader) error = nil
 
-var DefaultMinifyCde func(cdeext string, cdebuf *iorw.Buffer, cderdr io.Reader) = nil
+var DefaultMinifyCde func(cdeext string, cdebuf *iorw.Buffer, cderdr io.Reader) error = nil
