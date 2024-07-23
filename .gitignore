@@ -3,3 +3,5 @@ go.work.sum
 sys/*.log
 sys/__debug_bin.conf.js
 sys/__debug_bin*
+sys/*.conf.js
+sys/*.exe
