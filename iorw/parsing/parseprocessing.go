@@ -174,57 +174,6 @@ func prepContentElemReader(ctntelm *contentelem) {
 		if !postbuf.Empty() {
 			mtchphrshndl.Match("post", postbuf.String())
 		}
-		if !ctntbuf.Empty() {
-			if ctntbuf.Contains("[#") {
-				tmpbf := iorw.NewBuffer()
-				var tmplrplc iorw.ReplaceRunesEvent = func(matchphrase string, rplcerrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
-					if matchphrase == "[#" {
-						tmpbf.Clear()
-						tmpbf.Print(rplcerrdr.ReadRunesUntil("#"))
-						if rplcerrdr.FoundEOF() {
-
-						} else {
-
-						}
-					}
-					return
-				}
-				rdr := iorw.NewReplaceRuneReader(ctntbuf.Clone(true).Reader(true), "[#", tmplrplc)
-				tmpltcntrdr := NewUntilRuneReader(rdr, "#")
-				tmpbuf := iorw.NewBuffer()
-				for !tmpltcntrdr.Done {
-					tmpltcntrdr.WriteTo(tmpbuf)
-					if tmpltcntrdr.FoundUntil {
-						if !tmpbuf.Empty() {
-							tmpbuf.WriteTo(ctntbuf)
-							tmpbuf.Clear()
-						}
-						tmpltcntrdr.NextUntil("#")
-						tmpltcntrdr.WriteTo(tmpbuf)
-						if tmpltcntrdr.FoundUntil {
-							if !tmpbuf.Empty() {
-								tmpltnme := tmpbuf.String()
-								tmpbuf.Clear()
-								tmpltcntrdr.NextUntil("#" + tmpltnme + "#]")
-								tmpltcntrdr.WriteTo(tmpbuf)
-								if tmpltcntrdr.FoundUntil {
-									mtchphrshndl.Match(tmpltnme, tmpbuf.String())
-									//tmplts = append(tmplts, "<:_:"+tmpltnme+":/>", tmpbuf.String())
-									tmpbuf.Clear()
-									tmpltcntrdr.NextUntil("[#")
-								} else {
-									tmpbuf.Clear()
-								}
-							}
-						}
-					}
-				}
-				if !tmpbuf.Empty() {
-					tmpbuf.WriteTo(ctntbuf)
-					tmpbuf.Clear()
-				}
-			}
-		}
 		mtchphrshndl.Match("pathroot", pathroot)
 		mtchphrshndl.Match("root", root)
 		mtchphrshndl.Match("elemroot", func() (elmroot string) {
