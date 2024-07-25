@@ -2,6 +2,7 @@ package parsing
 
 import (
 	"io"
+	"strings"
 
 	"github.com/evocert/lnksnk/iorw"
 )
@@ -229,13 +230,30 @@ func newCodeEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) (cd
 									crntkrns = append(crntkrns, r)
 								}
 								if len(crntevtrdrs) == 1 {
-									if crntks := string(crntevtrdrs[cmkn]); string(crntkrns) == crntks && cdeevtrdr.cmntrdrfound == nil {
-										crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
-										cmntrdrfound = cdeevtrdr.cmntevtrdrs[crntks]
-										cmntrdrfound.SwapParseState()
-										cdeevtrdr.cmntrdrfound = cmntrdrfound
-										crntktsti = 1
-										crntkrns = nil
+									crntks, crntktst := string(crntevtrdrs[cmkn]), string(crntkrns)
+									if strings.HasPrefix(crntks, crntktst) {
+										if len(crntks) == len(crntktst) {
+											if crntks == crntktst {
+												if cdeevtrdr.cmntrdrfound == nil {
+													crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
+													cmntrdrfound = cdeevtrdr.cmntevtrdrs[crntks]
+													cmntrdrfound.SwapParseState()
+													cdeevtrdr.cmntrdrfound = cmntrdrfound
+													crntktsti = 1
+													crntkrns = nil
+													rns = append(rns[:rn], rns[rn+1:]...)
+													if rnsl = len(rns); rnsl == 0 {
+														return
+													}
+													goto redo
+												}
+											}
+											crntkrns = crntkrns[:len(crntkrns)-1]
+											crntevtrdrs = append(crntevtrdrs[:cmkn], crntevtrdrs[cmkn+1:]...)
+											goto nomore
+										}
+										crntktsti++
+										fndval = false
 										rns = append(rns[:rn], rns[rn+1:]...)
 										if rnsl = len(rns); rnsl == 0 {
 											return
