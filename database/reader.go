@@ -449,6 +449,13 @@ func (rdr *Reader) IsLast() (last bool) {
 	return
 }
 
+func (rdr *Reader) IsOnly() (only bool) {
+	if rdr != nil {
+		only = rdr.last && rdr.first
+	}
+	return
+}
+
 func (rdr *Reader) AsMap(cols ...string) (mp map[string]interface{}) {
 	if rdr != nil {
 		mp = map[string]interface{}{}
