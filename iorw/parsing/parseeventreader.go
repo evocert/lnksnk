@@ -19,8 +19,8 @@ type ParseEventReader struct {
 	cacherdr            *iorw.BuffReader
 	CanPreParse         func() bool
 	CanPostParse        func() bool
-	PreRunesEvent       func(bool, int, ...rune) error
-	PostRunesEvent      func(bool, int, ...rune) error
+	PreRunesEvent       func(reset bool, rnsl int, rns ...rune) (rnserr error)
+	PostRunesEvent      func(reset bool, rnsl int, rns ...rune) (rnserr error)
 	PreBufferEvent      func(prebuff *iorw.Buffer)
 	PostBufferEvent     func(postbuf *iorw.Buffer)
 	PostCanSetTextPar   func(prevr, r rune) bool
