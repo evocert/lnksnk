@@ -17,6 +17,7 @@ type codeeventreader struct {
 	CodePostRunesEvent func(rnsl int, rns ...rune) (rnserr error)
 	cmntevtrdrs        map[string]*commentevtreader
 	cmntrdrfound       *commentevtreader
+	ValidElemEvent     func(elemname string) bool
 }
 
 type commentevtreader struct {

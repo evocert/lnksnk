@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -28,10 +29,10 @@ type contentelem struct {
 	runerdr      io.RuneReader
 	rawBuf       *iorw.Buffer
 	eofevent     func(*contentelem, error)
-	tmplts       map[string]*iorw.Buffer
 	mtchphrshndl *MatchPhraseHandler
 	attrs        map[string]interface{}
 	level        int
+	prvctntelem  *contentelem
 }
 
 func (ctntelm *contentelem) writeRune(r rune) {
@@ -70,7 +71,8 @@ func (ctntelm *contentelem) ReadRune() (r rune, size int, err error) {
 			}
 			return
 		}
-		prepContentElemReader(ctntelm)
+		prepairContentElem(ctntelm)
+		//prepContentElemReader(ctntelm)
 		if ctntelm.runerdr != nil {
 			if ctntelm.rawBuf == nil {
 				ctntelm.rawBuf = iorw.NewBuffer()
@@ -91,6 +93,147 @@ func (ctntelm *contentelem) ReadRune() (r rune, size int, err error) {
 		err = io.EOF
 	}
 	return
+}
+
+func prepairContentElem(ctntelm *contentelem) {
+	if ctntelm != nil && ctntelm.runerdr == nil && ctntelm.fi != nil {
+		cntntbuf := ctntelm.ctntbuf
+		ctntelm.ctntbuf = nil
+		var rdr io.RuneReader = nil
+		if r, rerr := ctntelm.fi.Open(); rerr == nil {
+			if rdr, _ = (r).(io.RuneReader); rdr == nil {
+				rdr = iorw.NewEOFCloseSeekReader(r)
+			}
+		}
+		ctntstngs := map[string]interface{}{}
+		if attrs := ctntelm.attrs; len(attrs) > 0 {
+			for argk, argv := range attrs {
+				ctntstngs[argk] = argv
+			}
+			argsbuf := iorw.NewBuffer()
+			rdr = iorw.NewReplaceRuneReader(rdr, "#", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
+				if phrsfnd == "#" {
+					argseofrdr := rplcrdr.ReadRunesUntil("#")
+					argsbuf.Clear()
+					argsbuf.ReadRunesFrom(argseofrdr)
+					if rplcrdr.FoundEOF() {
+						for argk, argv := range attrs {
+							if eqls, _ := argsbuf.Equals(argk); eqls {
+								nxtrdr = argv
+								return
+							}
+						}
+						nxtrdr = ""
+						return
+					}
+					rplcrdr.PreAppend(argsbuf.Clone(true).Reader(true))
+					return
+				}
+				return
+			})
+		}
+
+		path := ctntelm.fi.Path()
+		pathroot := path
+		pthexti, pathpthi := strings.LastIndex(pathroot, "."), strings.LastIndex(pathroot, "/")
+		if pathpthi > -1 {
+			if pthexti > pathpthi {
+				pathroot = pathroot[:pathpthi+1]
+			}
+			pathroot = pathroot[:pathpthi+1]
+		} else {
+			pathroot = "/"
+		}
+		path = path[len(pathroot):]
+		root := pathroot
+		if root[0:1] == "/" && root[len(root)-1:] == "/" && root != "/" {
+			root = root[:strings.LastIndex(root[:len(root)-1], "/")+1]
+		}
+		if strings.HasSuffix(ctntelm.elemname, ":") {
+			path = ""
+		}
+		prebuf := ctntelm.prebuf
+		coresttngs := map[string]interface{}{}
+		if !prebuf.Empty() {
+			//mtchphrshndl.Match("pre", prebuf.String())
+
+		}
+		coresttngs["pre"] = prebuf.String()
+		postbuf := ctntelm.postbuf
+		if !postbuf.Empty() {
+			//mtchphrshndl.Match("post", postbuf.String())
+		}
+		coresttngs["post"] = postbuf.String()
+		//mtchphrshndl.Match("pathroot", pathroot)
+		coresttngs["pathroot"] = pathroot
+		//mtchphrshndl.Match("root", root)
+		coresttngs["root"] = root
+		coresttngs["elemroot"] = func() (elmroot string) {
+			if path == "" {
+				if strings.HasSuffix(pathroot, "/") {
+					if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
+						elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+					} else {
+						elmroot = ""
+					}
+				} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
+					elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+				} else {
+					elmroot = ""
+				}
+			} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
+				elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
+			} else {
+				elmroot = ""
+			}
+			return
+		}()
+		//mtchphrshndl.Match("cntnt", ctntbuf)
+		//coresttngs["cntnt"] = ctntbuf
+		corebuf := iorw.NewBuffer()
+		corerplcrdr := iorw.NewReplaceRuneReader(rdr, "<:_:", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
+			if phrsfnd == "<:_:" {
+				coreeofrdr := rplcrdr.ReadRunesUntil(":/>")
+				corebuf.Clear()
+				corebuf.ReadRunesFrom(coreeofrdr)
+				if rplcrdr.FoundEOF() {
+					for corek, corev := range coresttngs {
+						if eqls, _ := corebuf.Equals(corek); eqls {
+							nxtrdr = corev
+							return
+						}
+					}
+					return
+				}
+				rplcrdr.PreAppend(corebuf.Clone(true).Reader(true))
+				return
+			}
+			return
+		})
+
+		ctntstngs["cntnt"] = cntntbuf
+		ctntbuf := iorw.NewBuffer()
+		ctntrplcrdr := iorw.NewReplaceRuneReader(corerplcrdr, "<:", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
+			if phrsfnd == "<:" {
+				ctnteofrdr := rplcrdr.ReadRunesUntil(":/>")
+				ctntbuf.Clear()
+				ctntbuf.ReadRunesFrom(ctnteofrdr)
+				if rplcrdr.FoundEOF() {
+					for ctntk, ctntv := range ctntstngs {
+						if eqls, _ := ctntbuf.Equals(ctntk); eqls {
+							nxtrdr = ctntv
+							return
+						}
+					}
+					return
+				}
+				rplcrdr.PreAppend(ctntbuf.Clone(true).Reader(true))
+				return
+			}
+			return
+		})
+		ctntelm.runerdr = ctntrplcrdr
+	}
 }
 
 // Close implements io.Closer
@@ -219,13 +362,13 @@ func prepContentElemReader(ctntelm *contentelem) {
 		}
 
 		ctntelm.runerdr = mtchphrshndl
-		/*bfr := iorw.NewBuffer()
+		bfr := iorw.NewBuffer()
 		fmt.Println()
 		fmt.Println(ctntelm.elemname)
 		bfr.Print(ctntelm.runerdr)
 		fmt.Println(bfr.String())
 		fmt.Println()
-		ctntelm.runerdr = bfr.Reader(true)*/
+		ctntelm.runerdr = bfr.Reader(true)
 	}
 }
 
@@ -333,32 +476,39 @@ func internalProcessParsing(
 			elemroot: elemname[:strings.LastIndex(elemname, ":")+1],
 			elemext:  elemext,
 		}
-		//println(fi.Path())
 		validelempaths[fi.Path()] = fi.ModTime()
 		elmnext.level = len(elemlevels)
+		if elmnext.level > 0 {
+			elmnext.prvctntelem = elemlevels[elmnext.level-1]
+		}
 		elemlevels = append([]*contentelem{elmnext}, elemlevels...)
 		return
 	}
-	ctntEventReader.ValidElemEvent = func(elmlvl ctntelemlevel, elemname string, elmbuf *iorw.Buffer) (evtvalid bool, vlerr error) {
+	var nextfullname = func(elemname string, elmlvl ctntelemlevel) (fullname string) {
+		if elemname[0:1] == ":" {
+			return elemname
+		}
+
+		if crntnextelm != nil {
+			if elmlvl == ctntElemEnd {
+				if al := len(elemlevels); al > 0 && elemlevels[0] == crntnextelm && strings.HasSuffix(crntnextelm.elemname, elemname) {
+					return crntnextelm.elemname
+				}
+			}
+			return crntnextelm.elemroot + elemname
+		}
+		return elempath + elemname
+	}
+
+	ctntEventReader.ValidElemEvent = func(elmlvl ctntelemlevel, elemname string, elmbuf *iorw.Buffer, args *contentargsreader) (evtvalid bool, vlerr error) {
 		if fs != nil {
 			var fi fsutils.FileInfo = nil
 
-			fullelemname := func() string {
-				if elemname[0:1] == ":" {
-					return elemname
-				}
-
-				if crntnextelm != nil {
-					if elmlvl == ctntElemEnd {
-						if al := len(elemlevels); al > 0 && elemlevels[0] == crntnextelm && strings.HasSuffix(crntnextelm.elemname, elemname) {
-							return crntnextelm.elemname
-						}
-					}
-					return crntnextelm.elemroot + elemname
-				}
-				return elempath + elemname
-			}()
+			fullelemname := nextfullname(elemname, elmlvl)
 			if invalidelempaths[fullelemname] {
+				if !elmbuf.Empty() && crntnextelm != nil {
+					prepInvalidElemBuf(elmbuf, crntnextelm)
+				}
 				return
 			}
 			if elmlvl == ctntElemStart || elmlvl == ctntElemSingle {
@@ -390,11 +540,40 @@ func internalProcessParsing(
 					return nil
 				}(); fi == nil {
 					invalidelempaths[fullelemname] = true
+					if !elmbuf.Empty() && crntnextelm != nil {
+						prepInvalidElemBuf(elmbuf, crntnextelm)
+					}
 					return
 				}
 				evtvalid = true
 				crntnextelm = addelemlevel(fi, fullelemname, fi.PathExt())
-				parseElemPrePostBuf("pre", crntnextelm, elmbuf)
+				if !args.Done() {
+					crntnextelm.prebuf = elmbuf
+				} else {
+					prevargs := func() (prvsttngs map[string]interface{}) {
+						if len(elemlevels) > 0 {
+							prvsttngs = elemlevels[len(elemlevels)-1].attrs
+						}
+						return
+					}()
+					for argk, argv := range args.args {
+						if crntnextelm.attrs == nil {
+							crntnextelm.attrs = map[string]interface{}{}
+						}
+						if len(prevargs) > 0 {
+							arvbf := iorw.NewBuffer()
+							arvbf.Print(argv)
+							arvrplcrdr := iorw.NewReplaceRuneReader(arvbf.Clone(true).Reader(true))
+							for prvk, prvv := range prevargs {
+								arvrplcrdr.ReplaceWith(prvk, prvv)
+							}
+							arvbf.ReadRunesFrom(arvrplcrdr)
+							argv = arvbf.Clone(true)
+						}
+						crntnextelm.attrs[argk] = argv
+						delete(args.args, argk)
+					}
+				}
 				if elmlvl == ctntElemSingle {
 					crntnextelm.eofevent = func(crntelm *contentelem, elmerr error) {
 						if elmerr == nil {
@@ -422,7 +601,16 @@ func internalProcessParsing(
 			if elmlvl == ctntElemEnd {
 				if crntnextelm != nil && crntnextelm.elemname == fullelemname {
 					evtvalid = true
-					parseElemPrePostBuf("post", crntnextelm, elmbuf)
+					if !args.Done() {
+						crntnextelm.prebuf = elmbuf
+					} else {
+						for argk, argv := range args.args {
+							if crntnextelm.attrs == nil {
+								crntnextelm.attrs = map[string]interface{}{}
+							}
+							crntnextelm.attrs[argk] = argv
+						}
+					}
 					crntnextelm.eofevent = func(crntelm *contentelem, elmerr error) {
 						if elmerr == nil {
 							if !crntelm.rawBuf.Empty() {
@@ -703,153 +891,39 @@ func internalProcessParsing(
 	return
 }
 
+func prepInvalidElemBuf(elmbuf *iorw.Buffer, cntntelm *contentelem) {
+	if !elmbuf.Empty() && cntntelm != nil && len(cntntelm.attrs) > 0 {
+		var phrsbf *iorw.Buffer = nil
+		elmrplcrdr := iorw.NewReplaceRuneReader(elmbuf.Clone(true).Reader(true), "#", func(phrase string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
+			if phrase == "#" {
+				if phrsbf == nil {
+					phrsbf = iorw.NewBuffer()
+				} else {
+					phrsbf.Clear()
+				}
+				prhseofrdr := rplcrdr.ReadRunesUntil("#")
+				phrsbf.ReadRunesFrom(prhseofrdr)
+				if rplcrdr.FoundEOF() {
+					for attk, attv := range func() map[string]interface{} {
+						return cntntelm.attrs
+					}() {
+						if eqls, _ := phrsbf.Equals(attk); eqls {
+							return attv
+						}
+					}
+					return ""
+				}
+				rplcrdr.PreAppend(phrsbf.Clone(true).Reader(true))
+			}
+			return
+		})
+		elmbuf.Print(elmrplcrdr)
+	}
+}
+
 type CodeError interface {
 	error
 	Code() string
-}
-
-func parseElemPrePostBuf(prepost string, crntelm *contentelem, ctntprsvatvbuf *iorw.Buffer) {
-	if crntatvs := ctntprsvatvbuf.Size(); crntatvs > 0 && crntelm != nil && prepost != "" {
-		ctntatvbuf := ctntprsvatvbuf.Clone(true)
-		defer ctntatvbuf.Close()
-		ctntatvrdr := ctntatvbuf.Reader(true)
-
-		var prebf *iorw.Buffer = nil
-		prebuf := func() *iorw.Buffer {
-			if prebf == nil {
-				prebf = iorw.NewBuffer()
-			}
-			return prebf
-		}
-		prvr := rune(0)
-		txtr := rune(0)
-		lstattrid := ""
-		tmps := ""
-		fndassign := false
-
-		var attv *iorw.Buffer
-
-		var attbuff = func() *iorw.Buffer {
-			if attv == nil {
-				attv = iorw.NewBuffer()
-			}
-			return attv
-		}
-		var crntbuf = func() *iorw.Buffer {
-			if fndassign {
-				return attbuff()
-			}
-			return prebuf()
-		}
-		attrs := crntelm.attrs
-		assignval := func() bool {
-			if fndassign {
-				if lstattrid != "" {
-					if attrs == nil {
-						attrs = map[string]interface{}{}
-						crntelm.attrs = attrs
-					}
-
-					attrs[lstattrid] = func() interface{} {
-						if attv.Empty() {
-							return ""
-						}
-						return attv.Clone(true)
-					}()
-					lstattrid = ""
-				}
-				fndassign = false
-				return true
-			}
-			return false
-		}
-		prepostcderdr := newParseEventReader("[$", "$]", ctntatvrdr)
-		prepostcderdr.PostCanSetTextPar = func(prevr, r rune) bool {
-			return prepostcderdr.PostTxtr == 0 && prevr != '\\' && iorw.IsTxtPar(r)
-		}
-		prepostcderdr.PostCanSetTextPar = func(prevr, r rune) bool {
-			return prepostcderdr.PostTxtr == r && prevr != '\\'
-		}
-
-		prepostcderdr.PreRunesEvent = func(resetlbl bool, rnsl int, rns ...rune) (rnserr error) {
-			for _, r := range rns {
-				if txtr == 0 {
-					if prvr != '\\' && iorw.IsTxtPar(r) {
-						txtr = r
-						continue
-					}
-				}
-				if txtr > 0 {
-					if txtr == r {
-						if prvr != '\\' {
-							txtr = 0
-							if assignval() {
-								continue
-							}
-							continue
-						}
-					}
-					crntbuf().WriteRune(r)
-					prvr = r
-					continue
-				}
-				spce := iorw.IsSpace(r)
-				if spce || r == '=' {
-					if tmps != "" {
-						if !fndassign && r == '=' {
-							fndassign = true
-							lstattrid = tmps
-							tmps = ""
-							continue
-						} else if fndassign && spce {
-							crntbuf().Print(tmps)
-							assignval()
-							tmps = ""
-							continue
-						} else if spce {
-							tmps = ""
-						}
-					}
-					continue
-				}
-				if !spce {
-					if validElemChar(prvr, r) {
-						tmps += string(r)
-						prvr = 0
-						continue
-					}
-					prvr = r
-					continue
-				}
-				if tmps != "" {
-					crntbuf().Print(tmps)
-					tmps = ""
-				}
-				crntbuf().WriteRune(r)
-			}
-			return
-		}
-		prepostcderdr.PostRunesEvent = func(resetlbl bool, rnsl int, rns ...rune) (rnserr error) {
-			crntbuf().WriteRunes(rns...)
-			return
-		}
-		prepostcderdr.PostResetEvent = func(prel, postl int, prelbl, postlbl []rune, lbli []int) (reseterr error) {
-			assignval()
-			return
-		}
-		prepostcderdr.DummyEOFRead()
-		if tmps != "" {
-			crntbuf().Print(tmps)
-			tmps = ""
-		}
-		assignval()
-		if prepost == "pre" {
-			crntelm.prebuf = prebf
-		}
-		if prepost == "post" {
-			crntelm.postbuf = prebf
-		}
-	}
 }
 
 func validElmchar(cr rune) bool {

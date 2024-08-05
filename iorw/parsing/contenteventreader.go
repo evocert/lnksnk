@@ -8,7 +8,7 @@ import (
 
 type contenteventreader struct {
 	*ParseEventReader
-	ValidElemEvent func(elmlvl ctntelemlevel, elnname string, elmbuf *iorw.Buffer) (evtvalid bool, vlerr error)
+	ValidElemEvent func(elmlvl ctntelemlevel, elnname string, elmbuf *iorw.Buffer, elmargs *contentargsreader) (evtvalid bool, vlerr error)
 }
 
 const (
@@ -30,6 +30,13 @@ func newContentEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) 
 	}
 	ctntevtrdr.PostCanSetTextPar = func(prevr, r rune) (set bool) {
 		return prevr != '\\' && iorw.IsTxtPar(r)
+	}
+	var argsr *contentargsreader = nil
+	var argsrdr = func() *contentargsreader {
+		if argsr == nil {
+			argsr = newContentArgsReader("[$", "$]", ctntevtrdr)
+		}
+		return argsr
 	}
 	var elmfndname = false
 	//var elmtxtr = rune(0)
@@ -205,7 +212,6 @@ func newContentEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) 
 			}
 			return crntelmlvl
 		}(); elmfnd && elemname != "" {
-			//println(fndelmlvl.String() + " -> " + elemname)
 			vldelmevt := ctntevtrdr.ValidElemEvent
 			if vldelmevt == nil {
 				if rseterr = elmflushInvalid(ctntevtrdr.flushRunes, true, prelbl, postlbl, lbli); rseterr != nil {
@@ -216,7 +222,28 @@ func newContentEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) 
 			vldelmbuf := elmrmngbuf.Clone(true)
 			defer vldelmbuf.Close()
 			elmflushInvalid(ctntevtrdr.flushRunes, false, prelbl, postlbl, lbli)
-			vld, vlderr := vldelmevt(fndelmlvl, elemname, vldelmbuf)
+			if !vldelmbuf.Empty() {
+				argsrdr().PreAppend(vldelmbuf.Reader())
+				argrdrstg := argsrdr().ParseStage()
+				if rseterr = argsrdr().DummyEOFRead(); rseterr != nil {
+					return
+				}
+				if argrdrstg != argsrdr().ParseStage() {
+					argsr.Close()
+					argsr = nil
+				}
+				if fndelmlvl == ctntElemSingle || fndelmlvl == ctntElemSingle {
+					argsrdr().savearg()
+				}
+			}
+
+			vld, vlderr := vldelmevt(fndelmlvl, elemname, vldelmbuf, argsr)
+			if argsr != nil {
+				func() {
+					argsr.Close()
+					argsr = nil
+				}()
+			}
 			if vlderr != nil {
 				return
 			}
@@ -251,7 +278,6 @@ func newContentEventReader(prelabel, postlabel string, rnrdrs ...io.RuneReader) 
 				}
 				ctntevtrdr.prevr = pr
 			}
-			return
 		}
 		return
 	}
