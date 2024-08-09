@@ -1,7 +1,6 @@
 package parsing
 
 import (
-	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
@@ -10,6 +9,107 @@ import (
 	"github.com/evocert/lnksnk/fsutils"
 	"github.com/evocert/lnksnk/iorw"
 )
+
+type ArgsEventReader struct {
+	*iorw.ReplaceRuneReader
+	preposts    map[string]string
+	prebufs     map[string]*iorw.Buffer
+	prepostevts map[string]func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{})
+}
+
+func NewArgsEventReader(rplcrdr *iorw.ReplaceRuneReader) (argsavtr *ArgsEventReader) {
+	if rplcrdr != nil {
+		argsavtr = &ArgsEventReader{ReplaceRuneReader: rplcrdr}
+	}
+	return
+}
+
+func (argsevtr *ArgsEventReader) ReadRune() (r rune, size int, err error) {
+	if argsevtr != nil && argsevtr.ReplaceRuneReader != nil {
+		return argsevtr.ReplaceRuneReader.ReadRune()
+	}
+	if size == 0 && err == nil {
+		err = io.EOF
+	}
+	return
+}
+
+func (argsevtr *ArgsEventReader) ReplaceEvent(prefix string, rplcrdr *iorw.ReplaceRuneReader) (nxtrlst interface{}) {
+	if argsevtr != nil {
+		if preposts, prebufs := argsevtr.preposts, argsevtr.prebufs; len(preposts) > 0 {
+			if postfix := preposts[prefix]; postfix != "" {
+				if prebufs == nil {
+					prebufs = map[string]*iorw.Buffer{}
+					argsevtr.prebufs = prebufs
+				}
+				prebf := prebufs[prefix]
+				if prebf == nil {
+					prebf = iorw.NewBuffer()
+					prebufs[prefix] = prebf
+				}
+				prebf.Clear()
+				prebf.ReadRunesFrom(rplcrdr.ReadRunesUntil(postfix))
+				if rplcrdr.FoundEOF() {
+					if PostFixFoundEvent := argsevtr.prepostevts[prefix+postfix]; PostFixFoundEvent != nil {
+						fnd, val := PostFixFoundEvent(argsevtr, prefix, postfix, prebf)
+						if fnd {
+							return val
+						}
+						return ""
+					}
+				}
+				rplcrdr.PreAppend(prebf.Clone(true).Reader(true))
+				return
+			}
+		}
+	}
+	return
+}
+
+func (argsevtr *ArgsEventReader) MatchPhrase(phrsbuf *iorw.Buffer, args map[string]interface{}) (eqls bool, result interface{}) {
+	if !phrsbuf.Empty() && len(args) > 0 {
+		for argk, arv := range args {
+			if eqls, _ = phrsbuf.Equals(argk); eqls {
+				result = arv
+				return
+			}
+		}
+	}
+	return
+}
+
+func (argsevtr *ArgsEventReader) SetPrePostFix(a ...interface{}) {
+	if al := len(a); argsevtr != nil && al > 2 {
+		preposts, prepostevts := argsevtr.preposts, argsevtr.prepostevts
+		if preposts == nil {
+			preposts = map[string]string{}
+			argsevtr.preposts = preposts
+		}
+		if prepostevts == nil {
+			prepostevts = map[string]func(argsevtr *ArgsEventReader, prefix string, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}){}
+			argsevtr.prepostevts = prepostevts
+		}
+		for al > 2 {
+			if prepostevt, _ := a[0].(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{})); prepostevt != nil {
+				a = a[1:]
+				al--
+				if prefix := a[0].(string); prefix != "" {
+					a = a[1:]
+					al--
+					if postfix := a[0].(string); postfix != "" {
+						preposts[prefix] = postfix
+						a = a[1:]
+						al--
+						argsevtr.ReplaceWith(prefix, argsevtr)
+						prepostevts[prefix+postfix] = prepostevt
+						continue
+					}
+				}
+			}
+			break
+		}
+	}
+}
 
 func validLastCdeRune(cr rune) bool {
 	return cr == '=' || cr == '(' || cr == '[' || cr == ',' || cr == '+' || cr == '/'
@@ -72,7 +172,6 @@ func (ctntelm *contentelem) ReadRune() (r rune, size int, err error) {
 			return
 		}
 		prepairContentElem(ctntelm)
-		//prepContentElemReader(ctntelm)
 		if ctntelm.runerdr != nil {
 			if ctntelm.rawBuf == nil {
 				ctntelm.rawBuf = iorw.NewBuffer()
@@ -106,10 +205,54 @@ func prepairContentElem(ctntelm *contentelem) {
 			}
 		}
 		ctntstngs := map[string]interface{}{}
-		if attrs := ctntelm.attrs; len(attrs) > 0 {
-			for argk, argv := range attrs {
+		attrs := ctntelm.attrs
+		//argsctntbuf := iorw.NewBuffer()
+
+		agrsevtrdr := NewArgsEventReader(iorw.NewReplaceRuneReader(rdr))
+		agrsevtrdr.SetPrePostFix(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}) {
+			if prefix == "[#" && postfix == "#]" {
+				if fndval, val = argsevtr.MatchPhrase(phrsbuf, attrs); fndval {
+					return
+				}
+				return fndval, ""
+			}
+			return
+		}, "[#", "#]")
+		/*rdr = iorw.NewReplaceRuneReader(rdr, "[#", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
+			if phrsfnd == "[#" {
+				argseofrdr := rplcrdr.ReadRunesUntil("#]")
+				argsctntbuf.Clear()
+				argsctntbuf.ReadRunesFrom(argseofrdr)
+				if rplcrdr.FoundEOF() {
+					for argk, argv := range attrs {
+						if eqls, _ := argsctntbuf.Equals(argk); eqls {
+							nxtrdr = argv
+							return
+						}
+					}
+					nxtrdr = ""
+					return
+				}
+				rplcrdr.PreAppend(argsctntbuf.Clone(true).Reader(true))
+				return
+			}
+			return
+		})*/
+
+		if len(attrs) > 0 {
+			agrsevtrdr.SetPrePostFix(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}) {
+				if prefix == "#" && postfix == "#" {
+					if fndval, val = argsevtr.MatchPhrase(phrsbuf, attrs); fndval {
+						return
+					}
+					return fndval, ""
+				}
+				return
+			}, "#", "#")
+			/*for argk, argv := range attrs {
 				ctntstngs[argk] = argv
 			}
+
 			argsbuf := iorw.NewBuffer()
 			rdr = iorw.NewReplaceRuneReader(rdr, "#", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
 				if phrsfnd == "#" {
@@ -130,9 +273,9 @@ func prepairContentElem(ctntelm *contentelem) {
 					return
 				}
 				return
-			})
+			})*/
 		}
-
+		rdr = agrsevtrdr
 		path := ctntelm.fi.Path()
 		pathroot := path
 		pthexti, pathpthi := strings.LastIndex(pathroot, "."), strings.LastIndex(pathroot, "/")
@@ -190,7 +333,13 @@ func prepairContentElem(ctntelm *contentelem) {
 		}()
 		//mtchphrshndl.Match("cntnt", ctntbuf)
 		//coresttngs["cntnt"] = ctntbuf
-		corebuf := iorw.NewBuffer()
+		agrsevtrdr.SetPrePostFix(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}) {
+			if prefix == "" && postfix == ":/>" {
+				fndval, val = argsevtr.MatchPhrase(phrsbuf, coresttngs)
+			}
+			return
+		}, "<:_:", ":/>")
+		/*corebuf := iorw.NewBuffer()
 		corerplcrdr := iorw.NewReplaceRuneReader(rdr, "<:_:", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
 			if phrsfnd == "<:_:" {
 				coreeofrdr := rplcrdr.ReadRunesUntil(":/>")
@@ -209,10 +358,17 @@ func prepairContentElem(ctntelm *contentelem) {
 				return
 			}
 			return
-		})
+		})*/
 
 		ctntstngs["cntnt"] = cntntbuf
-		ctntbuf := iorw.NewBuffer()
+		agrsevtrdr.SetPrePostFix(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}) {
+			if prefix == "<:" && postfix == ":/>" {
+				fndval, val = argsevtr.MatchPhrase(phrsbuf, ctntstngs)
+			}
+			return
+		}, "<:", ":/>")
+
+		/*ctntbuf := iorw.NewBuffer()
 		ctntrplcrdr := iorw.NewReplaceRuneReader(corerplcrdr, "<:", func(phrsfnd string, rplcrdr *iorw.ReplaceRuneReader) (nxtrdr interface{}) {
 			if phrsfnd == "<:" {
 				ctnteofrdr := rplcrdr.ReadRunesUntil(":/>")
@@ -231,8 +387,8 @@ func prepairContentElem(ctntelm *contentelem) {
 				return
 			}
 			return
-		})
-		ctntelm.runerdr = ctntrplcrdr
+		})*/
+		ctntelm.runerdr = agrsevtrdr //ctntrplcrdr
 	}
 }
 
@@ -272,104 +428,6 @@ func (ctntelm *contentelem) Close() (err error) {
 		}
 	}
 	return
-}
-
-func prepContentElemReader(ctntelm *contentelem) {
-	if ctntelm != nil && ctntelm.runerdr == nil && ctntelm.fi != nil {
-		ctntbuf := ctntelm.ctntbuf
-		ctntelm.ctntbuf = nil
-		var rdr io.RuneReader = nil
-		if r, rerr := ctntelm.fi.Open(); rerr == nil {
-			if rdr, _ = (r).(io.RuneReader); rdr == nil {
-				rdr = iorw.NewEOFCloseSeekReader(r)
-			}
-		}
-
-		path := ctntelm.fi.Path()
-		pathroot := path
-		pthexti, pathpthi := strings.LastIndex(pathroot, "."), strings.LastIndex(pathroot, "/")
-		if pathpthi > -1 {
-			if pthexti > pathpthi {
-				pathroot = pathroot[:pathpthi+1]
-			}
-			pathroot = pathroot[:pathpthi+1]
-		} else {
-			pathroot = "/"
-		}
-		path = path[len(pathroot):]
-		root := pathroot
-		if root[0:1] == "/" && root[len(root)-1:] == "/" && root != "/" {
-			root = root[:strings.LastIndex(root[:len(root)-1], "/")+1]
-		}
-		if strings.HasSuffix(ctntelm.elemname, ":") {
-			path = ""
-		}
-		mtchphrshndl := ctntelm.mtchphrshndl
-		if mtchphrshndl == nil {
-			mtchphrshndl = NewMatchPhraseHandler(iorw.NewReplaceRuneReader(rdr), "<:_:", ":/>", "<:", ":/>", "[:", ":/]", "#", "#")
-			ctntelm.mtchphrshndl = mtchphrshndl
-		}
-		prebuf := ctntelm.prebuf
-		if !prebuf.Empty() {
-			mtchphrshndl.Match("pre", prebuf.String())
-		}
-		postbuf := ctntelm.postbuf
-		if !postbuf.Empty() {
-			mtchphrshndl.Match("post", postbuf.String())
-		}
-		mtchphrshndl.Match("pathroot", pathroot)
-		mtchphrshndl.Match("root", root)
-		mtchphrshndl.Match("elemroot", func() (elmroot string) {
-			if path == "" {
-				if strings.HasSuffix(pathroot, "/") {
-					if pthi := strings.LastIndex(pathroot[:len(pathroot)-1], "/"); pthi > -1 {
-						elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-					} else {
-						elmroot = ""
-					}
-				} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-					elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-				} else {
-					elmroot = ""
-				}
-			} else if pthi := strings.LastIndex(pathroot, "/"); pthi > -1 {
-				elmroot = strings.Replace(pathroot[:pthi+1], "/", ":", -1)
-			} else {
-				elmroot = ""
-			}
-			return
-		}())
-		mtchphrshndl.Match("cntnt", ctntbuf)
-		for attk, attv := range ctntelm.attrs {
-			mtchphrshndl.Match(attk, attv)
-			delete(ctntelm.attrs, attk)
-		}
-		mtchphrshndl.FoundPhraseEvent = func(matched bool, prefix, postfix, phrase string, result interface{}) (nxtrslt interface{}) {
-			if matched {
-				if fnds, _ := result.(string); fnds != "" {
-					nxtrslt = fnds
-					return
-				}
-				if fndbuf, _ := result.(*iorw.Buffer); !fndbuf.Empty() {
-					nxtrslt = fndbuf.Clone().Reader(true)
-					return
-				}
-			}
-			if prefix == "<:#:" && postfix == ":/>" {
-				return ""
-			}
-			return
-		}
-
-		ctntelm.runerdr = mtchphrshndl
-		bfr := iorw.NewBuffer()
-		fmt.Println()
-		fmt.Println(ctntelm.elemname)
-		bfr.Print(ctntelm.runerdr)
-		fmt.Println(bfr.String())
-		fmt.Println()
-		ctntelm.runerdr = bfr.Reader(true)
-	}
 }
 
 type ctntelemlevel int
