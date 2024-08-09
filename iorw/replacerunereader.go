@@ -154,6 +154,10 @@ func (rplcerrdr *ReplaceRuneReader) ReadRunesUntil(eof ...interface{}) io.RuneRe
 	return nil
 }
 
+type ReplaceRunesEventHandler interface {
+	ReplaceEvent(phrase string, rplcerrdr *ReplaceRuneReader) interface{}
+}
+
 type ReplaceRunesEvent func(matchphrase string, rplcerrdr *ReplaceRuneReader) interface{}
 
 func (rplcerrdr *ReplaceRuneReader) ReplaceWith(phrase, replacewith interface{}) {
@@ -235,6 +239,28 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 			}
 			if subReplaceRdrEvent, _ := phrsev.(ReplaceRunesEvent); subReplaceRdrEvent != nil {
 				nxtrdr := subReplaceRdrEvent(phrase, rplcerrdr)
+				if nxtvs, _ := nxtrdr.(string); nxtvs != "" || nxtrdr == nil {
+					rplcerrdr.crntrdr = appndrns(strings.NewReader(nxtvs))
+					return true, nil
+				}
+
+				if errnxtrdr, _ := nxtrdr.(error); errnxtrdr != nil {
+					return false, errnxtrdr
+				}
+
+				if nxtvrnr, _ := nxtrdr.(io.RuneReader); nxtvrnr != nil {
+					rplcerrdr.crntrdr = appndrns(nxtvrnr)
+					return true, nil
+				}
+				if nxtvrns, _ := nxtrdr.([]int32); len(nxtvrns) > 0 {
+					rplcerrdr.crntrdr = appndrns(strings.NewReader(string(nxtvrns)))
+					return true, nil
+				}
+				rplcerrdr.crntrdr = appndrns(NewMultiArgsReader(nxtrdr))
+				return true, nil
+			}
+			if replaceRdrEventHndl, _ := phrsev.(ReplaceRunesEventHandler); replaceRdrEventHndl != nil {
+				nxtrdr := replaceRdrEventHndl.ReplaceEvent(phrase, rplcerrdr)
 				if nxtvs, _ := nxtrdr.(string); nxtvs != "" || nxtrdr == nil {
 					rplcerrdr.crntrdr = appndrns(strings.NewReader(nxtvs))
 					return true, nil
