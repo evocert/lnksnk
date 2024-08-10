@@ -156,6 +156,113 @@ func Fprint(w io.Writer, a ...interface{}) (err error) {
 	return
 }
 
+// Fbprint - refer to fmt.Fprint
+func Fbprint(w io.Writer, a ...interface{}) (err error) {
+	if len(a) > 0 && w != nil {
+		for dn := range a {
+			if s, sok := a[dn].(string); sok {
+				if _, err = w.Write(RunesToUTF8([]rune(s)...)); err != nil {
+					if err == io.EOF {
+						err = nil
+						continue
+					}
+					break
+				}
+				continue
+			}
+			if irdr, irok := a[dn].(io.RuneReader); irok {
+				if ir, irok := a[dn].(io.Reader); irok {
+					a[dn] = ir
+				} else {
+					prns := make([]rune, 4096)
+					for err == nil {
+						pn, prerr := ReadRunes(prns, irdr)
+						if pn > 0 {
+							if _, err = w.Write(RunesToUTF8(prns[:pn]...)); err != nil {
+								continue
+							}
+						}
+						if prerr != nil {
+							err = prerr
+							break
+						}
+					}
+					if err == io.EOF {
+						err = nil
+					}
+				}
+			}
+			if ir, irok := a[dn].(io.Reader); irok {
+				if wfrom, _ := w.(io.ReaderFrom); wfrom != nil {
+					if _, err = wfrom.ReadFrom(ir); err != nil {
+						if err == io.EOF {
+							err = nil
+							continue
+						}
+						break
+					}
+					continue
+				}
+				if wto, _ := ir.(io.WriterTo); wto != nil {
+					if _, err = wto.WriteTo(w); err != nil {
+						if err == io.EOF {
+							err = nil
+							continue
+						}
+						break
+					}
+					continue
+				}
+				if _, err = WriteToFunc(ir, func(b []byte) (int, error) {
+					return w.Write(b)
+				}); err != nil {
+					if err == io.EOF {
+						err = nil
+						continue
+					}
+					break
+				}
+				continue
+			}
+			if bf, irok := a[dn].(*Buffer); irok {
+				_, err = bf.WriteTo(w)
+				continue
+			}
+			if aa, aaok := a[dn].([]interface{}); aaok {
+				if len(aa) > 0 {
+					if err = Fprint(w, aa...); err != nil {
+						break
+					}
+				}
+				continue
+			}
+			if arn, arnok := a[dn].([]int32); arnok {
+				if len(arn) > 0 {
+					if err = Fprint(w, string(arn)); err != nil {
+						break
+					}
+				}
+				continue
+			}
+			if sa, saok := a[dn].([]string); saok {
+				if len(sa) > 0 {
+					if _, err = w.Write(RunesToUTF8([]rune(strings.Join(sa, ""))...)); err != nil {
+						break
+					}
+				}
+				continue
+			}
+			if a[dn] != nil {
+				if _, err = fmt.Fprint(w, a[dn]); err != nil {
+					break
+				}
+				continue
+			}
+		}
+	}
+	return
+}
+
 func IsSpace(r rune) bool {
 	return (asciiSpace[r] == 1) || (r > 128 && unicode.IsSpace(r))
 }
