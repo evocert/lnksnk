@@ -14,6 +14,7 @@ type Writer interface {
 	Flush() error
 	Header() http.Header
 	Print(...interface{}) error
+	BPrint(...interface{}) error
 	Println(...interface{}) error
 	ReadFrom(r io.Reader) (n int64, err error)
 	MaxWriteSize(int64) bool
@@ -144,6 +145,15 @@ func (rqw *writer) Write(p []byte) (n int, err error) {
 func (rqw *writer) Print(a ...interface{}) (err error) {
 	if rqw != nil {
 		if err = iorw.Fprint(rqw, a...); err == nil {
+			err = rqw.Flush()
+		}
+	}
+	return
+}
+
+func (rqw *writer) BPrint(a ...interface{}) (err error) {
+	if rqw != nil {
+		if err = iorw.Fbprint(rqw, a...); err == nil {
 			err = rqw.Flush()
 		}
 	}
