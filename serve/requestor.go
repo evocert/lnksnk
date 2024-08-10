@@ -415,7 +415,6 @@ func InvokeVM(vm *active.VM, a ...interface{}) (nvm *active.VM) {
 }
 
 func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs *fsutils.FSUtils, activemap map[string]interface{}, a ...interface{}) (err error) {
-	//defer gc()
 	params := parameters.NewParameters()
 	defer params.CleanupParameters()
 	var ctx context.Context = nil
@@ -627,7 +626,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 										}
 										contentrange := fmt.Sprintf("%s %d-%d/%d", In.RangeType(), rangeOffset, maxoffset, rssize)
 										if Out != nil {
-											Out.Header().Set("Accept-Ranges", "bytes")
+											//Out.Header().Set("Accept-Ranges", "bytes")
 											Out.Header().Set("Content-Range", contentrange)
 											Out.Header().Set("Content-Length", fmt.Sprintf("%d", maxlen))
 										}
@@ -645,7 +644,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 										Out.MaxWriteSize(rssize)
 									}
 								}
-								Out.Print(eofrs)
+								Out.BPrint(eofrs)
 							}
 						}
 					}
@@ -657,7 +656,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 							if f, ferr := fi.Open(); ferr == nil {
 								if f != nil {
 									defer f.Close()
-									Out.Print(io.LimitReader(f, fi.Size()))
+									Out.BPrint(io.LimitReader(f, fi.Size()))
 								}
 							}
 						}
@@ -670,7 +669,7 @@ func internalServeRequest(path string, In serveio.Reader, Out serveio.Writer, fs
 							defer f.Close()
 							Out.Header().Set("Content-Length", fmt.Sprintf("%d", fi.Size()))
 							Out.WriteHeader(200)
-							Out.Print(io.LimitReader(f, fi.Size()))
+							Out.BPrint(io.LimitReader(f, fi.Size()))
 						}
 					}
 				}
