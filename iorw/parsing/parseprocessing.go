@@ -112,7 +112,7 @@ func (argsevtr *ArgsEventReader) SetPrePostFix(a ...interface{}) {
 }
 
 func validLastCdeRune(cr rune) bool {
-	return cr == '=' || cr == '(' || cr == '[' || cr == ',' || cr == '+' || cr == '/'
+	return cr == '=' || cr == '(' || cr == '[' || cr == ',' || cr == '+' || cr == '/' || cr == ':'
 }
 
 type parsefunc func(r rune, preLen, postLen int, prelbl, postlbl []rune, lbli []int) (prserr error)
