@@ -95,6 +95,8 @@ function buildFormData(){
                 });
             } else if (arg instanceof HTMLElement){
                 frmargs.push(arg);
+            } else if (typeof arg==="object") {
+                frmargs.push(arg);
             }
         }
     });
@@ -534,7 +536,7 @@ function _parseEval(){
         } else if(typeof formsrefs ==="string") {
             formsrefs=formsrefs.split(",");
         } else {
-            formsrefs=[];
+            formsrefs=[formsrefs];
         }
     } else {
         formsrefs=[];
