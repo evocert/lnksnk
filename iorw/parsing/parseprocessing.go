@@ -856,7 +856,8 @@ func internalProcessParsing(
 			prsngerr = DefaultMinifyCde(".js", cdebuf, nil)
 		}
 		if evalcode != nil && prsngerr == nil {
-			_, prsngerr = evalcode(cdebuf.Reader(), func(prgm interface{}, prsccdeerr error, cmpleerr error) {
+			var evalresult interface{} = nil
+			evalresult, prsngerr = evalcode(cdebuf.Reader(), func(prgm interface{}, prsccdeerr error, cmpleerr error) {
 				if cmpleerr == nil && prsccdeerr == nil {
 					chdpgrm = prgm
 				}
@@ -872,6 +873,9 @@ func internalProcessParsing(
 					}
 				}
 			})
+			if prsngerr == nil {
+				iorw.Fbprint(out, evalresult)
+			}
 		}
 		if prsngerr != nil {
 			println(prsngerr.Error())

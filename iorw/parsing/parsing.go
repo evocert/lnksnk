@@ -102,9 +102,11 @@ func Parse(parseOnly bool, pathModified time.Time, path string, defaultext strin
 					}
 				}
 				if evalcode != nil {
-					if _, prserr = chdscrpt.EvalAtv(evalcode); prserr != nil {
+					var evalresult interface{} = nil
+					if evalresult, prserr = chdscrpt.EvalAtv(evalcode); prserr != nil {
 						chdscrpt.Dispose()
 					}
+					iorw.Fbprint(out, evalresult)
 					return
 				}
 			} else {
