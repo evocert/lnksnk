@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"strings"
@@ -105,6 +106,16 @@ func Parse(parseOnly bool, pathModified time.Time, path string, defaultext strin
 					var evalresult interface{} = nil
 					if evalresult, prserr = chdscrpt.EvalAtv(evalcode); prserr != nil {
 						chdscrpt.Dispose()
+					}
+					pathext := filepath.Ext(fullpath)
+					if pathext == "" && defaultext != "" {
+						pathext = defaultext
+					}
+					if pathext == ".json" {
+						if out != nil {
+							json.NewEncoder(out).Encode(&evalresult)
+						}
+						return
 					}
 					iorw.Fbprint(out, evalresult)
 					return

@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"encoding/json"
 	"io"
 	"path/filepath"
 	"strings"
@@ -295,7 +296,7 @@ func prepairContentElem(ctntelm *contentelem) {
 		}()
 
 		agrsevtrdr.SetPrePostFix(func(argsevtr *ArgsEventReader, prefix, postfix string, phrsbuf *iorw.Buffer) (fndval bool, val interface{}) {
-			if prefix == "" && postfix == ":/>" {
+			if prefix == "<:_:" && postfix == ":/>" {
 				fndval, val = argsevtr.MatchPhrase(phrsbuf, coresttngs)
 			}
 			return
@@ -308,7 +309,6 @@ func prepairContentElem(ctntelm *contentelem) {
 			}
 			return
 		}, "<:", ":/>")
-
 		ctntelm.runerdr = agrsevtrdr
 	}
 }
@@ -874,6 +874,12 @@ func internalProcessParsing(
 				}
 			})
 			if prsngerr == nil {
+				if pathext == ".json" {
+					if out != nil {
+						json.NewEncoder(out).Encode(&evalresult)
+					}
+					return
+				}
 				iorw.Fbprint(out, evalresult)
 			}
 		}
