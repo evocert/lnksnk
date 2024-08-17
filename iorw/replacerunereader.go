@@ -208,7 +208,7 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 			}
 			if phrsbf, _ := phrsev.(*Buffer); !phrsbf.Empty() {
 				if isrepeatable {
-					rplcerrdr.crntrdr = appndrns(phrsbf.Clone(true).Reader(true))
+					rplcerrdr.crntrdr = appndrns(phrsbf.Clone().Reader(true))
 					return true, nil
 				}
 				rplcerrdr.crntrdr = appndrns(phrsbf.Reader())
@@ -236,7 +236,7 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 
 				if nxtvbf, _ := nxtrdr.(*Buffer); !nxtvbf.Empty() {
 					if isrepeatable {
-						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone(true).Reader(true))
+						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone().Reader(true))
 						return true, nil
 					}
 					rplcerrdr.crntrdr = appndrns(nxtvbf.Reader())
@@ -267,7 +267,7 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 				}
 				if nxtvbf, _ := nxtrdr.(*Buffer); !nxtvbf.Empty() {
 					if isrepeatable {
-						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone(true).Reader(true))
+						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone().Reader(true))
 						return true, nil
 					}
 					rplcerrdr.crntrdr = appndrns(nxtvbf.Reader())
@@ -297,7 +297,7 @@ func replacedWithReader(rplcerrdr *ReplaceRuneReader, rplcewith map[string]inter
 				}
 				if nxtvbf, _ := nxtrdr.(*Buffer); !nxtvbf.Empty() {
 					if isrepeatable {
-						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone(true).Reader(true))
+						rplcerrdr.crntrdr = appndrns(nxtvbf.Clone().Reader(true))
 						return true, nil
 					}
 					rplcerrdr.crntrdr = appndrns(nxtvbf.Reader())
