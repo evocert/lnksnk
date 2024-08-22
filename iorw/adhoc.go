@@ -1111,3 +1111,29 @@ func ReadRunes(p []rune, rds ...interface{}) (n int, err error) {
 	}
 	return
 }
+
+func ReadText(rdr io.RuneReader, txtpar rune, readtxt func(txtpar bool, r rune, size int, rerr error) (err error)) (foundtxtpar bool, err error) {
+	if rdr == nil || readtxt == nil {
+		return false, io.EOF
+	}
+	txtr := txtpar
+	prvr := rune(0)
+	var r rune
+	var size int
+	for err == nil {
+		r, size, err = rdr.ReadRune()
+		if size > 0 && (err == nil || err == io.EOF) {
+			if prvr != '\\' && txtr == r {
+				if foundtxtpar, err = true, readtxt(true, r, size, err); err != nil {
+					return foundtxtpar, err
+				}
+				return foundtxtpar, io.EOF
+			}
+			if foundtxtpar, err = false, readtxt(false, r, size, err); err != nil {
+				return foundtxtpar, err
+			}
+			prvr = r
+		}
+	}
+	return
+}
