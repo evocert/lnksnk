@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/sasl"
+	"github.com/lnksnk/lnksnk/sasl"
 )
 
 // A Client represents a client connection to an SMTP server.

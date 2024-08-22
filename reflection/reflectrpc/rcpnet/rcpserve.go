@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/parameters"
-	"github.com/evocert/lnksnk/reflection/reflectrpc"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/reflection/reflectrpc"
 )
 
 func RpcHttpServe(rpcstck *reflectrpc.RpcStack, w http.ResponseWriter, r *http.Request) {

@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap"
 )
 
 var errClosed = errors.New("imapserver: server closed")

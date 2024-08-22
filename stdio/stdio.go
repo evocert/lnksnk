@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 type Printer interface {

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/message/textproto"
+	"github.com/lnksnk/lnksnk/message/textproto"
 )
 
 // Writer writes message entities.

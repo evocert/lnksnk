@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 	//helper registration sql server driver
 
 	_ "github.com/microsoft/go-mssqldb"

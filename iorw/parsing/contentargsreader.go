@@ -1,6 +1,6 @@
 package parsing
 
-import "github.com/evocert/lnksnk/iorw"
+import "github.com/lnksnk/lnksnk/iorw"
 
 type argstage int
 

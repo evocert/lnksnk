@@ -5,18 +5,18 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/email/emailreader"
-	"github.com/evocert/lnksnk/email/emailwriter"
-	"github.com/evocert/lnksnk/email/imaplib"
-	"github.com/evocert/lnksnk/email/pop3"
-	"github.com/evocert/lnksnk/email/pop3lib"
-	"github.com/evocert/lnksnk/email/smtplib"
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw/active"
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/email/emailreader"
+	"github.com/lnksnk/lnksnk/email/emailwriter"
+	"github.com/lnksnk/lnksnk/email/imaplib"
+	"github.com/lnksnk/lnksnk/email/pop3"
+	"github.com/lnksnk/lnksnk/email/pop3lib"
+	"github.com/lnksnk/lnksnk/email/smtplib"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/parameters"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 type EMail struct {

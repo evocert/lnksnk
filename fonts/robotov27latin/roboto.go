@@ -6,7 +6,7 @@ import (
 	_ "embed"
 	"io"
 
-	"github.com/evocert/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/resources"
 )
 
 //go:embed index.css

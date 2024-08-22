@@ -3,10 +3,10 @@ package parser
 import (
 	"strings"
 
-	"github.com/evocert/lnksnk/ja/ast"
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/token"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/ast"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/token"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 func (self *_parser) parseIdentifier() *ast.Identifier {

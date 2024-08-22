@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"io"
 
-	"github.com/evocert/lnksnk/concurrent"
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/concurrent"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw/active"
 
 	//"lnksnk/logging"
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type DBMSHandler struct {

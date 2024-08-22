@@ -3,8 +3,8 @@ package minify
 import (
 	"io"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/parsing"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/parsing"
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
 	"github.com/tdewolff/minify/v2/html"

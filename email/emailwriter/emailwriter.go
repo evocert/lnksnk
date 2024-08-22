@@ -8,11 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/mimes"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/mimes"
 
-	_ "github.com/evocert/lnksnk/message/charset"
-	"github.com/evocert/lnksnk/message/mail"
+	_ "github.com/lnksnk/lnksnk/message/charset"
+	"github.com/lnksnk/lnksnk/message/mail"
 )
 
 type EmailWriter struct {

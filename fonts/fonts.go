@@ -1,9 +1,9 @@
 package fonts
 
 import (
-	_ "github.com/evocert/lnksnk/fonts/material"
-	_ "github.com/evocert/lnksnk/fonts/robotov27latin"
-	"github.com/evocert/lnksnk/resources"
+	_ "github.com/lnksnk/lnksnk/fonts/material"
+	_ "github.com/lnksnk/lnksnk/fonts/robotov27latin"
+	"github.com/lnksnk/lnksnk/resources"
 )
 
 func init() {

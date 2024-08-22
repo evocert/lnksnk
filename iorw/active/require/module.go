@@ -13,10 +13,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/evocert/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/fsutils"
 
-	js "github.com/evocert/lnksnk/ja"
-	"github.com/evocert/lnksnk/ja/parser"
+	js "github.com/lnksnk/lnksnk/ja"
+	"github.com/lnksnk/lnksnk/ja/parser"
 )
 
 type ModuleLoader func(*js.Runtime, *js.Object)

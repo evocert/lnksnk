@@ -3,9 +3,9 @@ package emailservice
 import (
 	"context"
 
-	"github.com/evocert/lnksnk/imapservice"
-	"github.com/evocert/lnksnk/iorw/active"
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/imapservice"
+	"github.com/lnksnk/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type EmailService struct {

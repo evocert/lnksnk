@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 func internalProcessParsingOld(

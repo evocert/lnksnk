@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/evocert/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/fsutils"
 )
 
 func ImportResource(fs *fsutils.FSUtils, emdfs embed.FS, incldsubdirs bool, pathroot string, paths ...string) {

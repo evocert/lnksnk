@@ -1,6 +1,6 @@
 package reflectrpc
 
-import "github.com/evocert/lnksnk/reflection"
+import "github.com/lnksnk/lnksnk/reflection"
 
 type rpcitem struct {
 	objref  interface{}

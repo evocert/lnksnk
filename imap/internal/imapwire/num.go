@@ -3,8 +3,8 @@ package imapwire
 import (
 	"unsafe"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/imapnum"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/imapnum"
 )
 
 type NumKind int

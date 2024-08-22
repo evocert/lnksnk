@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 
 	//helper registration posgres server pgx driver
 	_ "github.com/jackc/pgx/v5"

@@ -6,13 +6,13 @@ import (
 	"os"
 	"strings"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/listen"
-	"github.com/evocert/lnksnk/logging"
-	"github.com/evocert/lnksnk/resources"
-	"github.com/evocert/lnksnk/serve"
-	"github.com/evocert/lnksnk/service"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/listen"
+	"github.com/lnksnk/lnksnk/logging"
+	"github.com/lnksnk/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/serve"
+	"github.com/lnksnk/lnksnk/service"
 )
 
 func appName(args ...string) (appname string) {

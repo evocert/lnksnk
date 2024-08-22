@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/evocert/lnksnk/reflection/reflectrpc"
-	"github.com/evocert/lnksnk/reflection/reflectrpc/rcpnet"
+	"github.com/lnksnk/lnksnk/reflection/reflectrpc"
+	"github.com/lnksnk/lnksnk/reflection/reflectrpc/rcpnet"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"

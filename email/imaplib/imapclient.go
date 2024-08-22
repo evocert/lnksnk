@@ -6,11 +6,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/email/emailreader"
+	"github.com/lnksnk/lnksnk/email/emailreader"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/imapclient"
-	"github.com/evocert/lnksnk/sasl"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/imapclient"
+	"github.com/lnksnk/lnksnk/sasl"
 	"golang.org/x/oauth2"
 )
 

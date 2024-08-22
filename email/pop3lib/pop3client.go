@@ -4,10 +4,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/evocert/lnksnk/email/emailreader"
-	"github.com/evocert/lnksnk/email/pop3"
+	"github.com/lnksnk/lnksnk/email/emailreader"
+	"github.com/lnksnk/lnksnk/email/pop3"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 type POP3Client struct {

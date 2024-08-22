@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )

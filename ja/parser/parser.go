@@ -2,7 +2,7 @@
 Package parser implements a parser for JavaScript.
 
 	import (
-	    "github.com/evocert/lnksnk/ja/parser"
+	    "github.com/lnksnk/lnksnk/ja/parser"
 	)
 
 Parse and return an AST
@@ -38,10 +38,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/evocert/lnksnk/ja/ast"
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/token"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/ast"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/token"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 // A Mode value is a set of flags (or 0). They control optional parser functionality.

@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/active"
 
-	"github.com/evocert/lnksnk/ws"
+	"github.com/lnksnk/lnksnk/ws"
 
-	"github.com/evocert/lnksnk/websocket"
+	"github.com/lnksnk/lnksnk/websocket"
 )
 
 type ClientHandle struct {

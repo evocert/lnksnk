@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 
-	"github.com/evocert/lnksnk/iorw/active/require"
+	"github.com/lnksnk/lnksnk/iorw/active/require"
 
-	"github.com/evocert/lnksnk/ja"
-	"github.com/evocert/lnksnk/ja/parser"
+	"github.com/lnksnk/lnksnk/ja"
+	"github.com/lnksnk/lnksnk/ja/parser"
 )
 
 type VM struct {

@@ -9,9 +9,9 @@ node types are concerned) and may change in the future.
 package ast
 
 import (
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/token"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/token"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 type PropertyKind string

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 func finfoopen(path string, a ...interface{}) (io.ReadCloser, error) {

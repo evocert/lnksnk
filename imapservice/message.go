@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/imapserver"
-	gomessage "github.com/evocert/lnksnk/message"
-	"github.com/evocert/lnksnk/message/mail"
-	"github.com/evocert/lnksnk/message/textproto"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/imapserver"
+	gomessage "github.com/lnksnk/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message/mail"
+	"github.com/lnksnk/lnksnk/message/textproto"
 )
 
 type message struct {

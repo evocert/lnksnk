@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 	"golang.org/x/text/encoding"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/htmlindex"

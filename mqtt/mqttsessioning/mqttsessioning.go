@@ -1,8 +1,8 @@
 package mqttsessioning
 
 import (
-	"github.com/evocert/lnksnk/mqtt"
-	"github.com/evocert/lnksnk/serve"
+	"github.com/lnksnk/lnksnk/mqtt"
+	"github.com/lnksnk/lnksnk/serve"
 )
 
 var MQTTMNGR = mqtt.GLOBALMQTTMANAGER()

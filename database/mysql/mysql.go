@@ -3,7 +3,7 @@ package mysql
 import (
 	"database/sql"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 	//helper registration mysql server driver
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"

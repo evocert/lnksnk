@@ -1,8 +1,8 @@
 package imapserver
 
 import (
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/imapwire"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/imapwire"
 )
 
 func (c *Conn) handleCapability(dec *imapwire.Decoder) error {

@@ -7,12 +7,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/database"
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/active"
-	"github.com/evocert/lnksnk/parameters"
-	"github.com/evocert/lnksnk/serve/serveio"
+	"github.com/lnksnk/lnksnk/database"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/serve/serveio"
 )
 
 func ServeRequest(prefix string, w serveio.Writer, r serveio.Reader, a ...interface{}) (bool, error) {

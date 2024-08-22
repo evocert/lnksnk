@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/resources"
 )
 
 type Logger interface {

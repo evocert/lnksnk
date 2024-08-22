@@ -1,7 +1,7 @@
 package internal
 
 import (
-	"github.com/evocert/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap"
 )
 
 func FormatRights(rm imap.RightModification, rs imap.RightSet) string {

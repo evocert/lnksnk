@@ -1,4 +1,4 @@
-module github.com/evocert/lnksnk
+module github.com/lnksnk/lnksnk
 
 go 1.22
 

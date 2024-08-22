@@ -3,7 +3,7 @@ package smtp
 import (
 	"io"
 
-	"github.com/evocert/lnksnk/sasl"
+	"github.com/lnksnk/lnksnk/sasl"
 )
 
 var (

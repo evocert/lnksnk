@@ -3,7 +3,7 @@ package database
 import (
 	"database/sql"
 
-	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/iorw/active"
 	//"lnksnk/logging"
 )
 

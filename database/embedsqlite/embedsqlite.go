@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 	//helper registration sqlite driver
 
 	"github.com/pkg/errors"

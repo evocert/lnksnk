@@ -3,7 +3,7 @@ package db2
 import (
 	"database/sql"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 	//helper registration db2 server driver
 	/*
 		To use this include in the following

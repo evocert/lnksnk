@@ -1,6 +1,6 @@
 package ja
 
-import "github.com/evocert/lnksnk/ja/unistring"
+import "github.com/lnksnk/lnksnk/ja/unistring"
 
 var (
 	SymHasInstance        = newSymbol(asciiString("Symbol.hasInstance"))

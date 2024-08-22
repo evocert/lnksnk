@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/evocert/lnksnk/reflection"
+	"github.com/lnksnk/lnksnk/reflection"
 )
 
 type Slice struct {

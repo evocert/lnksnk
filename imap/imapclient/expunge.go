@@ -1,7 +1,7 @@
 package imapclient
 
 import (
-	"github.com/evocert/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap"
 )
 
 // Expunge sends an EXPUNGE command.

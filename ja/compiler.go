@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/evocert/lnksnk/ja/token"
+	"github.com/lnksnk/lnksnk/ja/token"
 
-	"github.com/evocert/lnksnk/ja/ast"
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/ast"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 type blockType int

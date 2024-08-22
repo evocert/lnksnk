@@ -5,8 +5,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/evocert/lnksnk/serve"
-	"github.com/evocert/lnksnk/stdio"
+	"github.com/lnksnk/lnksnk/serve"
+	"github.com/lnksnk/lnksnk/stdio"
 )
 
 func HttpBroker(fin io.ReadCloser, fout io.WriteCloser, exitphrase string, canExit func(string, stdio.ReaderPrinter) (bool, error), doneBroking func() error) (err error) {

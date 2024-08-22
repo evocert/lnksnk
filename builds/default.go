@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/resources"
-	"github.com/evocert/lnksnk/stdio/command"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/stdio/command"
 )
 
 //go:embed dist.json

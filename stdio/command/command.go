@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/stdio"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/stdio"
 )
 
 func removeLeadingDuplicates(env []string) (ret []string) {

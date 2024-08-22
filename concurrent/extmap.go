@@ -5,7 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/evocert/lnksnk/reflection"
+	"github.com/lnksnk/lnksnk/reflection"
 )
 
 type Map struct {

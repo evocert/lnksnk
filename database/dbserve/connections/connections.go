@@ -3,10 +3,10 @@ package connections
 import (
 	"encoding/json"
 
-	"github.com/evocert/lnksnk/database"
-	"github.com/evocert/lnksnk/database/dbserve"
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/serve/serveio"
+	"github.com/lnksnk/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database/dbserve"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/serve/serveio"
 )
 
 var cmdconnections dbserve.CommandFunc = func(path, ext string, dbhnl *database.DBMSHandler, w serveio.Writer, r serveio.Reader, fs *fsutils.FSUtils) (err error) {

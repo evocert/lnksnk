@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/resources"
 )
 
 //go:embed index.html

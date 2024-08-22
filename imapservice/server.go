@@ -4,7 +4,7 @@ package imapservice
 import (
 	"sync"
 
-	"github.com/evocert/lnksnk/imap/imapserver"
+	"github.com/lnksnk/lnksnk/imap/imapserver"
 )
 
 // Server is a server instance.

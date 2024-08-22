@@ -3,7 +3,7 @@ package imapclient
 import (
 	"fmt"
 
-	"github.com/evocert/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap"
 )
 
 // Enable sends an ENABLE command.

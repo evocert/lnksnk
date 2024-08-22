@@ -3,8 +3,8 @@ package imapserver
 import (
 	"strings"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/imapwire"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/imapwire"
 )
 
 func (c *Conn) handleStatus(dec *imapwire.Decoder) error {

@@ -5,7 +5,7 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 // Address represents a single mail address.

@@ -7,7 +7,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/evocert/lnksnk/ja/parser"
+	"github.com/lnksnk/lnksnk/ja/parser"
 )
 
 func (r *Runtime) newRegexpObject(proto *Object) *regexpObject {

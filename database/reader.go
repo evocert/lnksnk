@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/active"
 
 	"reflect"
 	"strings"

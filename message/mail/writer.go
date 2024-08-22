@@ -4,7 +4,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 func initInlineContentTransferEncoding(h *message.Header) {

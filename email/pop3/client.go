@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 // MessageList represents the metadata returned by the server for a

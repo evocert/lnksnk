@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"sort"
 
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 const (

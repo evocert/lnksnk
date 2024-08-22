@@ -3,10 +3,10 @@ package emailservice
 import (
 	"context"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/imapservice"
-	"github.com/evocert/lnksnk/iorw/active"
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/imapservice"
+	"github.com/lnksnk/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type EMAILSvcHandler struct {

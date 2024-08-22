@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/concurrent"
+	"github.com/lnksnk/lnksnk/concurrent"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	"golang.org/x/net/http2"

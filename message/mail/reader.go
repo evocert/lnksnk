@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 // A PartHeader is a mail part header. It contains convenience functions to get

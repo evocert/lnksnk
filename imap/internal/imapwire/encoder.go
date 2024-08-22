@@ -8,8 +8,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/utf7"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/utf7"
 )
 
 // An Encoder writes IMAP data.

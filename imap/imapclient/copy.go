@@ -3,8 +3,8 @@ package imapclient
 import (
 	"fmt"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/imapwire"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/imapwire"
 )
 
 // Copy sends a COPY command.

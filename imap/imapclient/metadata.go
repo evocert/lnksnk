@@ -3,7 +3,7 @@ package imapclient
 import (
 	"fmt"
 
-	"github.com/evocert/lnksnk/imap/internal/imapwire"
+	"github.com/lnksnk/lnksnk/imap/internal/imapwire"
 )
 
 type GetMetadataDepth int

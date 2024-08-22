@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 type datareadertype int

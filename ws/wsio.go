@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 
-	"github.com/evocert/lnksnk/websocket"
+	"github.com/lnksnk/lnksnk/websocket"
 )
 
 // ReaderWriter - struct

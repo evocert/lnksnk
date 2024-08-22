@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/evocert/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap"
 )
 
 // MailboxTracker tracks the state of a mailbox.

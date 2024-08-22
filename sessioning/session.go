@@ -1,9 +1,9 @@
 package sessioning
 
 import (
-	"github.com/evocert/lnksnk/database"
-	"github.com/evocert/lnksnk/iorw/active"
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/database"
+	"github.com/lnksnk/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type Session struct {

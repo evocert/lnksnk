@@ -3,7 +3,7 @@ package imap
 import (
 	"unsafe"
 
-	"github.com/evocert/lnksnk/imap/internal/imapnum"
+	"github.com/lnksnk/lnksnk/imap/internal/imapnum"
 )
 
 // NumSet is a set of numbers identifying messages. NumSet is either a SeqSet

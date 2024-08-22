@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
 
-	"github.com/evocert/lnksnk/concurrent"
+	"github.com/lnksnk/lnksnk/concurrent"
 )
 
 type CachedScript struct {

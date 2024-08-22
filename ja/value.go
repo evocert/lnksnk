@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/evocert/lnksnk/ja/ftoa"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/ftoa"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 var (

@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/iocaching"
-	"github.com/evocert/lnksnk/mimes"
-	"github.com/evocert/lnksnk/web"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/iocaching"
+	"github.com/lnksnk/lnksnk/mimes"
+	"github.com/lnksnk/lnksnk/web"
 )
 
 type EmbeddedResource struct {

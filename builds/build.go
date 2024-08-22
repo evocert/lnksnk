@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 func BuildGoAppDistribution(done chan bool, sourcepath, destinationpath, destappname string, disableCgoSupport bool) {

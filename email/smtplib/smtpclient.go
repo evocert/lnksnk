@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/evocert/lnksnk/email/emailwriter"
+	"github.com/lnksnk/lnksnk/email/emailwriter"
 
-	"github.com/evocert/lnksnk/sasl"
-	smtpe "github.com/evocert/lnksnk/smtp"
+	"github.com/lnksnk/lnksnk/sasl"
+	smtpe "github.com/lnksnk/lnksnk/smtp"
 )
 
 type SMTPClient struct {

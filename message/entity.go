@@ -7,7 +7,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/evocert/lnksnk/message/textproto"
+	"github.com/lnksnk/lnksnk/message/textproto"
 )
 
 // An Entity is either a whole message or a one of the parts in the body of a
@@ -35,7 +35,7 @@ func New(header Header, body io.Reader) (*Entity, error) {
 	// a Content-Transfer-Encoding other than "7bit", "8bit" or "binary".
 	// However some messages in the wild are non-conformant and have it set to
 	// e.g. "quoted-printable". So we just ignore it for multipart.
-	// See https://github.com/evocert/lnksnk/message/issues/48
+	// See https://github.com/lnksnk/lnksnk/message/issues/48
 	if !strings.HasPrefix(mediaType, "multipart/") {
 		enc := header.Get("Content-Transfer-Encoding")
 		if decoded, encErr := encodingReader(enc, body); encErr != nil {

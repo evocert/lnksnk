@@ -3,7 +3,7 @@ package message
 import (
 	"io"
 
-	"github.com/evocert/lnksnk/message/textproto"
+	"github.com/lnksnk/lnksnk/message/textproto"
 )
 
 // MultipartReader is an iterator over parts in a MIME multipart body.

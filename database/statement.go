@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"io"
 
-	//"github.com/evocert/lnksnk/caching"
+	//"github.com/lnksnk/lnksnk/caching"
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/concurrent"
-	"github.com/evocert/lnksnk/fsutils"
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/concurrent"
+	"github.com/lnksnk/lnksnk/fsutils"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type Statement struct {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/imapserver"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/imapserver"
 )
 
 const mailboxDelim rune = '/'

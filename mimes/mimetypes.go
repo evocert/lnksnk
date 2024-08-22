@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/evocert/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw"
 )
 
 //go:embed mimetypes.txt

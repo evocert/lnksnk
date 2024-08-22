@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"io"
 
-	"github.com/evocert/lnksnk/parameters"
+	"github.com/lnksnk/lnksnk/parameters"
 )
 
 type rpcstream struct {

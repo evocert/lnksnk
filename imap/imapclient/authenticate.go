@@ -3,10 +3,10 @@ package imapclient
 import (
 	"fmt"
 
-	"github.com/evocert/lnksnk/sasl"
+	"github.com/lnksnk/lnksnk/sasl"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal"
 )
 
 // Authenticate sends an AUTHENTICATE command.

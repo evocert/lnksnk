@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/sasl"
+	"github.com/lnksnk/lnksnk/sasl"
 )
 
 // Number of errors we'll tolerate per connection before closing. Defaults to 3.

@@ -16,10 +16,10 @@ import (
 
 	"golang.org/x/text/collate"
 
-	js_ast "github.com/evocert/lnksnk/ja/ast"
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/parser"
-	"github.com/evocert/lnksnk/ja/unistring"
+	js_ast "github.com/lnksnk/lnksnk/ja/ast"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/parser"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 const (

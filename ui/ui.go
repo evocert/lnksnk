@@ -3,8 +3,8 @@ package ui
 import (
 	"embed"
 
-	"github.com/evocert/lnksnk/embedutils"
-	"github.com/evocert/lnksnk/resources"
+	"github.com/lnksnk/lnksnk/embedutils"
+	"github.com/lnksnk/lnksnk/resources"
 )
 
 //go:embed js/*.*

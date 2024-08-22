@@ -1,8 +1,8 @@
 package imapclient
 
 import (
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal"
 )
 
 // Select sends a SELECT or EXAMINE command.

@@ -1,7 +1,7 @@
 package mail
 
 import (
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 // A InlineHeader represents a message text header.

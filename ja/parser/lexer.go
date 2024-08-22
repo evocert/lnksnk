@@ -11,9 +11,9 @@ import (
 
 	"golang.org/x/text/unicode/rangetable"
 
-	"github.com/evocert/lnksnk/ja/file"
-	"github.com/evocert/lnksnk/ja/token"
-	"github.com/evocert/lnksnk/ja/unistring"
+	"github.com/lnksnk/lnksnk/ja/file"
+	"github.com/lnksnk/lnksnk/ja/token"
+	"github.com/lnksnk/lnksnk/ja/unistring"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/evocert/lnksnk/ja/ftoa/internal/fast"
+	"github.com/lnksnk/lnksnk/ja/ftoa/internal/fast"
 )
 
 type FToStrMode int

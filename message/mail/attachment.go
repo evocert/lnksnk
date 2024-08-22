@@ -1,7 +1,7 @@
 package mail
 
 import (
-	"github.com/evocert/lnksnk/message"
+	"github.com/lnksnk/lnksnk/message"
 )
 
 // An AttachmentHeader represents an attachment's header.

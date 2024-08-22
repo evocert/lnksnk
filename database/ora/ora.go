@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/evocert/lnksnk/database"
+	"github.com/lnksnk/lnksnk/database"
 	//helper registration oracle server driver
 	"github.com/pkg/errors"
 	_ "github.com/sijms/go-ora/v2"

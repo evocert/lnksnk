@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/internal/imapwire"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/internal/imapwire"
 )
 
 const (

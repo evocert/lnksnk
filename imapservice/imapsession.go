@@ -5,11 +5,11 @@ import (
 	"net/mail"
 	"strings"
 
-	"github.com/evocert/lnksnk/database"
-	"github.com/evocert/lnksnk/imap"
-	"github.com/evocert/lnksnk/imap/imapserver"
-	"github.com/evocert/lnksnk/iorw"
-	"github.com/evocert/lnksnk/iorw/active"
+	"github.com/lnksnk/lnksnk/database"
+	"github.com/lnksnk/lnksnk/imap"
+	"github.com/lnksnk/lnksnk/imap/imapserver"
+	"github.com/lnksnk/lnksnk/iorw"
+	"github.com/lnksnk/lnksnk/iorw/active"
 )
 
 var _ imapserver.Session = (*imapsession)(nil)
