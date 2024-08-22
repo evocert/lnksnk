@@ -641,6 +641,23 @@ func internalHasSuffixBytes(buff *Buffer, testbts []byte, offsets ...int64) (iss
 	return
 }
 
+func (buff *Buffer) SubBuffer(offsets ...int64) (subbf *Buffer) {
+	subbf = NewBuffer()
+	if buff != nil {
+		if offlen := len(offsets); offlen > 0 {
+			if bfs := buff.Size(); offsets[0] < bfs && offsets[0] > -1 {
+				if offlen == 1 {
+					offsets = append(offsets, buff.Size())
+				}
+				if offsets[0] < bfs && offsets[1] <= bfs {
+					subbf.ReadFrom(buff.Reader(offsets[0], offsets[1]))
+				}
+			}
+		}
+	}
+	return
+}
+
 // Clone - return *Buffer clone
 func (buff *Buffer) Clone(clear ...bool) (clnbf *Buffer) {
 	clnbf = NewBuffer()
