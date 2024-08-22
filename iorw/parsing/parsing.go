@@ -117,7 +117,9 @@ func Parse(parseOnly bool, pathModified time.Time, path string, defaultext strin
 						}
 						return
 					}
-					iorw.Fbprint(out, evalresult)
+					if out != nil {
+						iorw.Fbprint(out, evalresult)
+					}
 					return
 				}
 			} else {
