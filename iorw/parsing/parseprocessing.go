@@ -917,6 +917,7 @@ func prepInvalidElemBuf(elmbuf *iorw.Buffer, cntntelm *contentelem) {
 							return attv
 						}
 					}
+					//TEST GITHUB
 					return ""
 				}
 				rplcrdr.PreAppend(phrsbf.Clone(true).Reader(true))
