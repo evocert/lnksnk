@@ -251,3 +251,131 @@ func (rdrrnsuntil *runesreaderuntil) Read(p []rune) (n int, err error) {
 	}
 	return
 }
+
+func ReadRunesUntil(rdr interface{}, eof ...interface{}) io.RuneReader {
+	if rdr == nil {
+		return nil
+	}
+	orgrdr, _ := rdr.(io.RuneReader)
+	if orgrdr == nil {
+		if rdrd, _ := rdr.(io.Reader); rdrd != nil {
+			orgrdr = NewEOFCloseSeekReader(rdrd)
+		}
+	}
+	var foundmatch func(phrasefnd string) error = nil
+	var eofrunes [][]rune = nil
+	for _, eofd := range eof {
+		if s, _ := eofd.(string); s != "" {
+			eofrunes = append(eofrunes, []rune(s))
+			continue
+		}
+		if int32s, _ := eofd.([]int32); len(int32s) > 0 {
+			eofrns := make([]rune, len(int32s))
+			copy(eofrns, int32s)
+			eofrunes = append(eofrunes, eofrns)
+			continue
+		}
+		if foundmatchd, _ := eofd.(func(phrasefnd string) error); foundmatchd != nil {
+			if foundmatch == nil {
+				foundmatch = foundmatchd
+			}
+			continue
+		}
+	}
+	if eofl := len(eofrunes); eofl > 0 && foundmatch != nil && orgrdr != nil {
+		eoffnd := false
+		lsteofphrse := ""
+		var rnsrdr ReadRuneFunc = nil
+		ri := 0
+		bfrdrns := []rune{}
+		fndeofs := []int{}
+		noorg := false
+		var mtcheofs = map[int]int{}
+		rnsrdr = func() (r rune, size int, err error) {
+			if len(bfrdrns) > 0 {
+				r = bfrdrns[0]
+				bfrdrns = bfrdrns[1:]
+				size = utf8.RuneLen(r)
+				return
+			}
+			for !eoffnd && !noorg {
+			rdfndeofs:
+				r, size, err = orgrdr.ReadRune()
+				if size > 0 {
+					if err == nil || err == io.EOF {
+						if len(mtcheofs) > 0 {
+							ri++
+							for eofi, eofrnslen := range mtcheofs {
+								if (ri + 1) <= eofrnslen {
+									if eofrunes[eofi][ri] != r {
+										if len(mtcheofs) == 0 {
+											bfrdrns = append(bfrdrns, eofrunes[eofi][:ri+1]...)
+										}
+										delete(mtcheofs, eofi)
+										continue
+									}
+									if (ri + 1) == eofrnslen {
+										if len(mtcheofs) == 1 {
+											ri = 0
+											eoffnd = true
+											lsteofphrse = string(eofrunes[eofi])
+											delete(mtcheofs, eofi)
+											if len(bfrdrns) == 0 {
+												if err = foundmatch(lsteofphrse); err != nil {
+													return
+												}
+												return 0, 0, io.EOF
+											}
+											return rnsrdr.ReadRune()
+										}
+										fndeofs = append(fndeofs, eofi)
+									}
+									continue
+								}
+							}
+							mthchl := len(mtcheofs)
+							if mthchl == 0 {
+								return r, size, err
+							}
+							goto rdfndeofs
+						}
+						for mpeofi := range len(eofrunes) {
+							if eofrunes[mpeofi][0] == r {
+								mtcheofs[mpeofi] = len(eofrunes[mpeofi])
+							}
+						}
+						if mthchl := len(mtcheofs); mthchl < 2 {
+							if mthchl == 0 {
+								return r, size, err
+							}
+							if mthchl == 1 {
+								for eofi, eofrnslen := range mtcheofs {
+									if eofrnslen == 1 {
+										eoffnd = true
+										lsteofphrse = string(eofrunes[eofi])
+										delete(mtcheofs, eofi)
+										return 0, 0, io.EOF
+									}
+									break
+								}
+							}
+						}
+						goto rdfndeofs
+					}
+					if err != io.EOF {
+						return
+					}
+					continue
+				}
+				noorg = true
+				return rnsrdr.ReadRune()
+			}
+			if size == 0 && err == nil {
+				err = io.EOF
+			}
+			return
+		}
+		return rnsrdr
+	}
+	return nil
+}

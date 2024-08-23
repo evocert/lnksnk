@@ -157,7 +157,7 @@ func (mtchphrshndl *MatchPhraseHandler) ReadUntil(phrsbuf *iorw.Buffer, rplcrdr 
 		rnsuntil := rplcrdr.ReadRunesUntil(postfix)
 		phrsbuf.Clear()
 		phrsbuf.ReadRunesFrom(rnsuntil)
-		if rplcrdr.FoundEOF() {
+		if fnd, _ := rplcrdr.FoundEOF(); fnd {
 			FoundEof(postfix)
 			found = true
 			return

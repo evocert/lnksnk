@@ -128,7 +128,7 @@ func internalProcessParsingOld(
 			tmpphrasebuf.ReadRunesFrom(rnsuntil)
 			if !tmpphrasebuf.Empty() {
 				defer tmpphrasebuf.Clear()
-				if rplcrdr.FoundEOF() {
+				if fnd, _ := rplcrdr.FoundEOF(); fnd {
 					for fndk, fndv := range tmpmatchthis {
 						if equals, _ := tmpphrasebuf.Equals(fndk); equals {
 							if fnds, _ := fndv.(string); fnds != "" {

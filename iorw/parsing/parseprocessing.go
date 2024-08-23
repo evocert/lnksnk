@@ -50,7 +50,7 @@ func (argsevtr *ArgsEventReader) ReplaceEvent(prefix string, rplcrdr *iorw.Repla
 				}
 				prebf.Clear()
 				prebf.ReadRunesFrom(rplcrdr.ReadRunesUntil(postfix))
-				if rplcrdr.FoundEOF() {
+				if fnd, _ := rplcrdr.FoundEOF(); fnd {
 					if PostFixFoundEvent := argsevtr.prepostevts[prefix+postfix]; PostFixFoundEvent != nil {
 						fnd, val := PostFixFoundEvent(argsevtr, prefix, postfix, prebf)
 						if fnd {
@@ -433,7 +433,7 @@ func internalProcessParsing(
 			tmpphrasebuf.ReadRunesFrom(rnsuntil)
 			if !tmpphrasebuf.Empty() {
 				defer tmpphrasebuf.Clear()
-				if rplcrdr.FoundEOF() {
+				if fnd, _ := rplcrdr.FoundEOF(); fnd {
 					for fndk, fndv := range tmpmatchthis {
 						if equals, _ := tmpphrasebuf.Equals(fndk); equals {
 							if fnds, _ := fndv.(string); fnds != "" {
@@ -909,7 +909,7 @@ func prepInvalidElemBuf(elmbuf *iorw.Buffer, cntntelm *contentelem) {
 				}
 				prhseofrdr := rplcrdr.ReadRunesUntil("#")
 				phrsbf.ReadRunesFrom(prhseofrdr)
-				if rplcrdr.FoundEOF() {
+				if fnd, _ := rplcrdr.FoundEOF(); fnd {
 					for attk, attv := range func() map[string]interface{} {
 						return cntntelm.attrs
 					}() {

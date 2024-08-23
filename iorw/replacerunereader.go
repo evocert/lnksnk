@@ -5,24 +5,20 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"unicode/utf8"
 )
 
 type ReplaceRuneReader struct {
-	eoffnd bool
-	//rnstst        []rune
-	//rnststi       int
-	//rmnrnsl       int
-	orgrdr        *RuneReaderSlice
-	crntrdr       io.RuneReader
-	crntrns       []rune
-	crntrnsl      int
-	rplcewith     map[string]interface{}
-	rplcekeys     []string
-	crntrplcekeys map[int]string
-	mxlrplcL      int
-	OnClose       func(*ReplaceRuneReader, error) (err error)
-	undrlyingrdr  ReadRuneFunc
+	eoffnd       bool
+	lsteofphrse  string
+	orgrdr       *RuneReaderSlice
+	crntrdr      io.RuneReader
+	crntrns      []rune
+	crntrnsl     int
+	rplcewith    map[string]interface{}
+	rplcekeys    []string
+	mxlrplcL     int
+	OnClose      func(*ReplaceRuneReader, error) (err error)
+	undrlyingrdr ReadRuneFunc
 }
 
 func NewReplaceRuneReader(orgrdr interface{}, rplwiths ...interface{}) (rplcerrdr *ReplaceRuneReader) {
@@ -77,34 +73,44 @@ func (rplcerrdr *ReplaceRuneReader) ReadUnderlyingRune() (r rune, size int, err 
 	return
 }
 
-func (rplcerrdr *ReplaceRuneReader) FoundEOF() bool {
+func (rplcerrdr *ReplaceRuneReader) FoundEOF() (bool, string) {
 	if rplcerrdr == nil {
-		return false
+		return false, ""
 	}
-	return rplcerrdr.eoffnd
+	return rplcerrdr.eoffnd, func() string {
+		if rplcerrdr.eoffnd {
+			return rplcerrdr.lsteofphrse
+		}
+		return ""
+	}()
 }
 
 func (rplcerrdr *ReplaceRuneReader) ReadRunesUntil(eof ...interface{}) io.RuneReader {
-	if rplcerrdr == nil {
+	if rplcerrdr == nil || len(eof) == 0 {
 		return nil
 	}
 
-	var eofrunes []rune = nil
-	if len(eof) == 1 {
-		if s, sok := eof[0].(string); sok && s != "" {
-			eofrunes = []rune(s)
-		} else {
-			eofrunes, _ = eof[0].([]rune)
+	/*var eofrunes [][]rune = nil
+	for _, eofd := range eof {
+		if s, _ := eofd.(string); s != "" {
+			eofrunes = append(eofrunes, []rune(s))
+			continue
+		} else if int32s, _ := eofd.([]int32); len(int32s) > 0 {
+			eofrns := make([]rune, len(int32s))
+			copy(eofrns, int32s)
+			eofrunes = append(eofrunes, eofrns)
+			continue
 		}
 	}
+
 	if eofl := len(eofrunes); eofl > 0 {
 		rplcerrdr.eoffnd = false
-		eofi := 0
-		prveofr := rune(0)
 		var rnsrdr ReadRuneFunc = nil
-
+		ri := 0
 		bfrdrns := []rune{}
+		fndeofs := []int{}
 		noorg := false
+		var mtcheofs = map[int]int{}
 		rnsrdr = func() (r rune, size int, err error) {
 			if len(bfrdrns) > 0 {
 				r = bfrdrns[0]
@@ -113,28 +119,65 @@ func (rplcerrdr *ReplaceRuneReader) ReadRunesUntil(eof ...interface{}) io.RuneRe
 				return
 			}
 			for !rplcerrdr.eoffnd && !noorg {
+			rdfndeofs:
 				r, size, err = rplcerrdr.ReadUnderlyingRune()
 				if size > 0 {
 					if err == nil || err == io.EOF {
-						if eofi > 0 && eofrunes[eofi-1] == prveofr && eofrunes[eofi] != r {
-							bfrdrns = append(bfrdrns, eofrunes[:eofi]...)
-							eofi = 0
-						}
-						if eofrunes[eofi] == r {
-							eofi++
-							if eofi == eofl {
-								rplcerrdr.eoffnd = true
-								err = io.EOF
-								r = 0
-								size = 0
-								prveofr = 0
-								return
+						if len(mtcheofs) > 0 {
+							ri++
+							for eofi, eofrnslen := range mtcheofs {
+								if (ri + 1) <= eofrnslen {
+									if eofrunes[eofi][ri] != r {
+										if len(mtcheofs) == 0 {
+											bfrdrns = append(bfrdrns, eofrunes[eofi][:ri+1]...)
+										}
+										delete(mtcheofs, eofi)
+										continue
+									}
+									if (ri + 1) == eofrnslen {
+										if len(mtcheofs) == 1 {
+											ri = 0
+											rplcerrdr.eoffnd = true
+											rplcerrdr.lsteofphrse = string(eofrunes[eofi])
+											delete(mtcheofs, eofi)
+											if len(bfrdrns) == 0 {
+												return 0, 0, io.EOF
+											}
+											return rnsrdr.ReadRune()
+										}
+										fndeofs = append(fndeofs, eofi)
+									}
+									continue
+								}
 							}
-							prveofr = r
-							continue
+							mthchl := len(mtcheofs)
+							if mthchl == 0 {
+								return r, size, err
+							}
+							goto rdfndeofs
 						}
-						bfrdrns = append(bfrdrns, r)
-						return rnsrdr.ReadRune()
+						for mpeofi := range len(eofrunes) {
+							if eofrunes[mpeofi][0] == r {
+								mtcheofs[mpeofi] = len(eofrunes[mpeofi])
+							}
+						}
+						if mthchl := len(mtcheofs); mthchl < 2 {
+							if mthchl == 0 {
+								return r, size, err
+							}
+							if mthchl == 1 {
+								for eofi, eofrnslen := range mtcheofs {
+									if eofrnslen == 1 {
+										rplcerrdr.eoffnd = true
+										rplcerrdr.lsteofphrse = string(eofrunes[eofi])
+										delete(mtcheofs, eofi)
+										return 0, 0, io.EOF
+									}
+									break
+								}
+							}
+						}
+						goto rdfndeofs
 					}
 					if err != io.EOF {
 						return
@@ -150,8 +193,15 @@ func (rplcerrdr *ReplaceRuneReader) ReadRunesUntil(eof ...interface{}) io.RuneRe
 			return
 		}
 		return rnsrdr
+	}*/
+	rplcerrdr.eoffnd = false
+	fundhorase := func(phrase string) error {
+		rplcerrdr.eoffnd = true
+		rplcerrdr.lsteofphrse = phrase
+		return nil
 	}
-	return nil
+	eof = append(eof, fundhorase)
+	return ReadRunesUntil(rplcerrdr.UnderlyingReader(), eof...)
 }
 
 type ReplaceRunesEventHandler interface {
